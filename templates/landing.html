@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexo.money - Corporate Cards & Expense Management for Indian SMEs</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --navy: #0F1B2D;
+            --teal: #00D09C;
+            --white: #FFFFFF;
+            --off-white: #F7F9FC;
+            --gray-dark: #1a2e42;
+            --gray-light: #e8eef7;
+        }
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--white);
+            color: var(--navy);
+            overflow-x: hidden;
+        }
+
+        /* Custom Tailwind config via inline styles */
+        .bg-navy { background-color: var(--navy); }
+        .bg-teal { background-color: var(--teal); }
+        .bg-off-white { background-color: var(--off-white); }
+        .text-navy { color: var(--navy); }
+        .text-teal { color: var(--teal); }
+        .border-teal { border-color: var(--teal); }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes pulse-slow {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .fade-in {
+            opacity: 0;
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+
+        .slide-in-left {
+            opacity: 0;
+            animation: slideInLeft 0.8s ease-out forwards;
+        }
+
+        .slide-in-right {
+            opacity: 0;
+            animation: slideInRight 0.8s ease-out forwards;
+        }
+
+        .float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Dashboard Mockup - CSS shapes */
+        .dashboard-mockup {
+            perspective: 1000px;
+            position: relative;
+            height: 400px;
+        }
+
+        .dashboard-card {
+            background: linear-gradient(135deg, rgba(0, 208, 156, 0.1) 0%, rgba(15, 27, 45, 0.05) 100%);
+            border: 1px solid rgba(0, 208, 156, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .dashboard-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 208, 156, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .dashboard-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .chart-bar {
+            display: inline-block;
+            background: linear-gradient(to top, var(--teal), rgba(0, 208, 156, 0.5));
+            border-radius: 4px;
+            margin: 0 4px;
+        }
+
+        /* Stat cards hover */
+        .stat-card {
+            transition: all 0.3s ease;
+            border: 1px solid rgba(0, 208, 156, 0.2);
+        }
+
+        .stat-card:hover {
+            border-color: var(--teal);
+            box-shadow: 0 10px 30px rgba(0, 208, 156, 0.1);
+            transform: translateY(-4px);
+        }
+
+        /* Feature cards */
+        .feature-card {
+            background: var(--white);
+            border: 1px solid var(--gray-light);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--teal), transparent);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--teal);
+            box-shadow: 0 20px 40px rgba(0, 208, 156, 0.1);
+            transform: translateY(-8px);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            display: inline-block;
+        }
+
+        /* Pricing cards */
+        .pricing-card {
+            border-radius: 16px;
+            padding: 40px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .pricing-card.featured {
+            background: linear-gradient(135deg, var(--navy) 0%, var(--gray-dark) 100%);
+            color: var(--white);
+            transform: scale(1.05);
+            box-shadow: 0 20px 60px rgba(0, 208, 156, 0.2);
+        }
+
+        .pricing-card:not(.featured) {
+            background: var(--off-white);
+            border: 1px solid var(--gray-light);
+        }
+
+        .pricing-card:not(.featured):hover {
+            border-color: var(--teal);
+            box-shadow: 0 15px 40px rgba(0, 208, 156, 0.1);
+        }
+
+        .badge-featured {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--teal);
+            color: var(--navy);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Steps */
+        .step-item {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        .step-number {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--teal), rgba(0, 208, 156, 0.7));
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .step-arrow {
+            position: absolute;
+            top: 30px;
+            left: 65%;
+            width: 20%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--teal), transparent);
+            z-index: 1;
+        }
+
+        .step-item:last-child .step-arrow {
+            display: none;
+        }
+
+        /* Button styles */
+        .btn {
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            display: inline-block;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: var(--teal);
+            color: var(--navy);
+        }
+
+        .btn-primary:hover {
+            background: #00b383;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 208, 156, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--navy);
+            border: 2px solid var(--navy);
+        }
+
+        .btn-secondary:hover {
+            background: var(--navy);
+            color: var(--white);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary-light {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary-light:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: var(--white);
+        }
+
+        /* Form */
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 1px solid var(--gray-light);
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: var(--white);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--teal);
+            box-shadow: 0 0 0 3px rgba(0, 208, 156, 0.1);
+        }
+
+        /* Testimonial */
+        .testimonial-card {
+            background: var(--off-white);
+            border: 1px solid var(--gray-light);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .testimonial-stars {
+            color: #FFD700;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        /* Success message */
+        .success-message {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-top: 16px;
+            display: none;
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .step-arrow {
+                display: none;
+            }
+
+            .pricing-card.featured {
+                transform: scale(1);
+            }
+
+            .dashboard-mockup {
+                height: 300px;
+            }
+        }
+
+        /* Subtle gradient backgrounds */
+        .gradient-overlay {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gradient-overlay::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at top right, rgba(0, 208, 156, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .section-content {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 bg-white bg-opacity-95 backdrop-blur-md z-50 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-2xl font-800 text-navy">nexo.</span>
+                    <span class="text-2xl font-800 text-teal">money</span>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#features" class="text-navy hover:text-teal transition-colors font-500">Features</a>
+                    <a href="#how-it-works" class="text-navy hover:text-teal transition-colors font-500">How It Works</a>
+                    <a href="#pricing" class="text-navy hover:text-teal transition-colors font-500">Pricing</a>
+                    <a href="#waitlist" class="text-navy hover:text-teal transition-colors font-500">Waitlist</a>
+                </div>
+                <button class="btn btn-primary hidden md:inline-block">Join Waitlist</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="bg-navy text-white pt-32 pb-20 md:pt-48 md:pb-32 relative overflow-hidden gradient-overlay">
+        <div class="absolute inset-0 opacity-10">
+            <div class="absolute top-10 right-10 w-72 h-72 bg-teal rounded-full mix-blend-multiply filter blur-3xl"></div>
+            <div class="absolute bottom-10 left-10 w-72 h-72 bg-teal rounded-full mix-blend-multiply filter blur-3xl animation-delay-2000"></div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 section-content">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div class="fade-in">
+                    <h1 class="text-5xl md:text-6xl font-800 mb-6 leading-tight">
+                        The Modern Expense Platform for Indian SMEs
+                    </h1>
+                    <p class="text-lg md:text-xl text-gray-300 mb-8 leading-relaxed">
+                        Corporate cards. Spend controls. GST compliance. All in one platform.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button class="btn btn-primary text-base px-8 py-4">Join the Waitlist</button>
+                        <a href="/app" class="btn btn-secondary-light text-base px-8 py-4">Watch Demo</a>
+                    </div>
+                </div>
+
+                <div class="slide-in-right hidden md:block">
+                    <div class="dashboard-mockup">
+                        <div class="dashboard-card">
+                            <div class="dashboard-content">
+                                <div class="text-sm font-600 text-teal mb-4">Dashboard Overview</div>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-end h-32 gap-2">
+                                        <div class="chart-bar" style="height: 40%;"></div>
+                                        <div class="chart-bar" style="height: 60%;"></div>
+                                        <div class="chart-bar" style="height: 75%;"></div>
+                                        <div class="chart-bar" style="height: 50%;"></div>
+                                        <div class="chart-bar" style="height: 85%;"></div>
+                                        <div class="chart-bar" style="height: 65%;"></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3 text-sm">
+                                        <div class="bg-white bg-opacity-5 backdrop-blur p-3 rounded">
+                                            <div class="text-gray-400 text-xs">Total Spend</div>
+                                            <div class="text-teal font-700">₹2,45,000</div>
+                                        </div>
+                                        <div class="bg-white bg-opacity-5 backdrop-blur p-3 rounded">
+                                            <div class="text-gray-400 text-xs">Active Cards</div>
+                                            <div class="text-teal font-700">12</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pain Points Section -->
+    <section class="bg-off-white py-20 md:py-32 gradient-overlay">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 section-content">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl md:text-5xl font-800 text-navy mb-4">
+                    Indian SMEs lose ₹12,000/month to expense chaos
+                </h2>
+                <p class="text-lg text-gray-600">The problems you face every single day</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="stat-card bg-white rounded-16 p-8 fade-in" style="animation-delay: 0.1s">
+                    <div class="text-4xl font-800 text-teal mb-3">70%</div>
+                    <div class="text-xl font-700 text-navy mb-2">Higher Cost</div>
+                    <p class="text-gray-600">Manual expense tracking processes cost 70% more than automated solutions</p>
+                </div>
+
+                <div class="stat-card bg-white rounded-16 p-8 fade-in" style="animation-delay: 0.2s">
+                    <div class="text-4xl font-800 text-teal mb-3">60%</div>
+                    <div class="text-xl font-700 text-navy mb-2">GST ITC Lost</div>
+                    <p class="text-gray-600">Non-compliant expense tracking causes 60% of eligible GST input tax credits to be missed</p>
+                </div>
+
+                <div class="stat-card bg-white rounded-16 p-8 fade-in" style="animation-delay: 0.3s">
+                    <div class="text-4xl font-800 text-teal mb-3">10-15</div>
+                    <div class="text-xl font-700 text-navy mb-2">Days Delay</div>
+                    <p class="text-gray-600">Corporate card deployment can take 10-15 days instead of instant issuance</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="bg-white py-20 md:py-32 gradient-overlay">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 section-content">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl md:text-5xl font-800 text-navy mb-4">
+                    Everything you need to control spending
+                </h2>
+                <p class="text-lg text-gray-600">Powerful features built for Indian SMEs</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="feature-card fade-in" style="animation-delay: 0.1s">
+                    <div class="feature-icon">💳</div>
+                    <h3 class="text-xl font-700 text-navy mb-3">Instant Virtual Cards</h3>
+                    <p class="text-gray-600">Issue virtual cards in seconds. No paperwork, no delays. Perfect for online and offline payments.</p>
+                </div>
+
+                <div class="feature-card fade-in" style="animation-delay: 0.2s">
+                    <div class="feature-icon">🎯</div>
+                    <h3 class="text-xl font-700 text-navy mb-3">Smart Spend Controls</h3>
+                    <p class="text-gray-600">Set limits by category, merchant, amount. Control who can spend, where, and how much.</p>
+                </div>
+
+                <div class="feature-card fade-in" style="animation-delay: 0.3s">
+                    <div class="feature-icon">✓</div>
+                    <h3 class="text-xl font-700 text-navy mb-3">Auto GST Compliance</h3>
+                    <p class="text-gray-600">Automatic GST categorization. Never miss ITC again. Built for Indian tax requirements.</p>
+                </div>
+
+                <div class="feature-card fade-in" style="animation-delay: 0.4s">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="text-xl font-700 text-navy mb-3">Real-Time Dashboard</h3>
+                    <p class="text-gray-600">Live spending insights. See every transaction, every rupee. Full visibility in real-time.</p>
+                </div>
+
+                <div class="feature-card fade-in" style="animation-delay: 0.5s">
+                    <div class="feature-icon">⚙️</div>
+                    <h3 class="text-xl font-700 text-navy mb-3">Approval Workflows</h3>
+                    <p class="text-gray-600">Customizable multi-level approvals. Maintain control over company spending policies.</p>
+                </div>
+
+                <div class="feature-card fade-in" style="animation-delay: 0.6s">
+                    <div class="feature-icon">🔗</div>
+                    <h3 class="text-xl font-700 text-navy mb-3">Tally/Zoho Integration</h3>
+                    <p class="text-gray-600">Seamless sync with your accounting software. Auto-reconciliation in seconds.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="bg-off-white py-20 md:py-32 gradient-overlay">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 section-content">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl md:text-5xl font-800 text-navy mb-4">
+                    Get started in 3 simple steps
+                </h2>
+                <p class="text-lg text-gray-600">From signup to full expense management in minutes</p>
+            </div>
+
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative">
+                <div class="step-item fade-in" style="animation-delay: 0.1s">
+                    <div class="step-number">1</div>
+                    <div class="step-arrow"></div>
+                    <h3 class="text-xl font-700 text-navy mb-2">Sign Up</h3>
+                    <p class="text-gray-600 text-center">Quick verification. Just 10 minutes to get started</p>
+                </div>
+
+                <div class="step-item fade-in" style="animation-delay: 0.2s">
+                    <div class="step-number">2</div>
+                    <div class="step-arrow"></div>
+                    <h3 class="text-xl font-700 text-navy mb-2">Issue Cards</h3>
+                    <p class="text-gray-600 text-center">Instant virtual cards. Ready to use immediately</p>
+                </div>
+
+                <div class="step-item fade-in" style="animation-delay: 0.3s">
+                    <div class="step-number">3</div>
+                    <h3 class="text-xl font-700 text-navy mb-2">Track Everything</h3>
+                    <p class="text-gray-600 text-center">Real-time dashboard. Full visibility and control</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="bg-white py-20 md:py-32 gradient-overlay">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 section-content">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl md:text-5xl font-800 text-navy mb-4">
+                    Simple, transparent pricing
+                </h2>
+                <p class="text-lg text-gray-600">No hidden fees. Choose the plan that scales with you</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <div class="pricing-card fade-in" style="animation-delay: 0.1s">
+                    <h3 class="text-2xl font-700 text-navy mb-2">Free</h3>
+                    <p class="text-gray-600 mb-6">Perfect to get started</p>
+                    <div class="mb-6">
+                        <span class="text-4xl font-800 text-navy">₹0</span>
+                        <span class="text-gray-600">/month</span>
+                    </div>
+                    <button class="btn btn-secondary w-full mb-8">Get Started</button>
+                    <ul class="space-y-4">
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span class="text-gray-700">Up to 5 corporate cards</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span class="text-gray-700">Basic spend controls</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span class="text-gray-700">Simple dashboard</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-gray-400 mr-3 font-700">✗</span>
+                            <span class="text-gray-400">GST compliance</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-gray-400 mr-3 font-700">✗</span>
+                            <span class="text-gray-400">Approval workflows</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pricing-card featured fade-in" style="animation-delay: 0.2s">
+                    <div class="badge-featured">Most Popular</div>
+                    <h3 class="text-2xl font-700 mb-2">Premium</h3>
+                    <p class="text-gray-300 mb-6">For growing teams</p>
+                    <div class="mb-6">
+                        <span class="text-4xl font-800">₹999</span>
+                        <span class="text-gray-300">/month</span>
+                    </div>
+                    <button class="btn btn-primary w-full mb-8 text-navy">Start Free Trial</button>
+                    <ul class="space-y-4">
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span>Unlimited corporate cards</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span>Advanced spend controls</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span>Auto GST compliance</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span>Approval workflows</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span>Tally/Zoho sync</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pricing-card fade-in" style="animation-delay: 0.3s">
+                    <h3 class="text-2xl font-700 text-navy mb-2">Enterprise</h3>
+                    <p class="text-gray-600 mb-6">For scaling businesses</p>
+                    <div class="mb-6">
+                        <span class="text-4xl font-800 text-navy">Custom</span>
+                    </div>
+                    <button class="btn btn-secondary w-full mb-8">Contact Sales</button>
+                    <ul class="space-y-4">
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span class="text-gray-700">Multi-entity support</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span class="text-gray-700">Custom workflows</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span class="text-gray-700">API access</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span class="text-gray-700">Dedicated support</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-teal mr-3 font-700">✓</span>
+                            <span class="text-gray-700">Custom integrations</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Proof Section -->
+    <section class="bg-off-white py-20 md:py-32 gradient-overlay">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 section-content">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl md:text-5xl font-800 text-navy mb-4">
+                    Trusted by 50+ Indian SMEs
+                </h2>
+                <p class="text-lg text-gray-600">Founders and finance teams love Nexo</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="testimonial-card fade-in" style="animation-delay: 0.1s">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="text-gray-700 mb-4 italic">"Nexo cut our expense management time by 80%. The GST compliance feature alone saved us ₹45,000 in the first month."</p>
+                    <div class="font-700 text-navy">Rahul Sharma</div>
+                    <div class="text-sm text-gray-600">Founder, TechStart Solutions</div>
+                </div>
+
+                <div class="testimonial-card fade-in" style="animation-delay: 0.2s">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="text-gray-700 mb-4 italic">"Instant virtual cards meant our team could start working immediately without waiting for physical cards. Game changer for operations."</p>
+                    <div class="font-700 text-navy">Priya Kapoor</div>
+                    <div class="text-sm text-gray-600">Finance Head, Brands India</div>
+                </div>
+
+                <div class="testimonial-card fade-in" style="animation-delay: 0.3s">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="text-gray-700 mb-4 italic">"Finally, a solution built for Indian businesses. The Tally integration syncs perfectly. No more manual entries."</p>
+                    <div class="font-700 text-navy">Arun Patel</div>
+                    <div class="text-sm text-gray-600">CFO, Commerce Plus Ltd</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA / Waitlist Section -->
+    <section id="waitlist" class="bg-navy text-white py-20 md:py-32 relative overflow-hidden gradient-overlay">
+        <div class="absolute inset-0 opacity-10">
+            <div class="absolute top-0 right-0 w-96 h-96 bg-teal rounded-full mix-blend-multiply filter blur-3xl"></div>
+        </div>
+
+        <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 section-content text-center">
+            <h2 class="text-4xl md:text-5xl font-800 mb-6 fade-in">
+                Ready to simplify expense management?
+            </h2>
+            <p class="text-xl text-gray-300 mb-12 fade-in" style="animation-delay: 0.1s">
+                Join 50+ SMEs controlling their spending with Nexo
+            </p>
+
+            <form id="waitlist-form" class="max-w-md mx-auto fade-in" style="animation-delay: 0.2s">
+                <div class="space-y-4 mb-6">
+                    <input
+                        type="email"
+                        id="email"
+                        placeholder="your@email.com"
+                        class="form-input"
+                        required
+                    >
+                    <input
+                        type="text"
+                        id="company"
+                        placeholder="Company Name"
+                        class="form-input"
+                        required
+                    >
+                </div>
+                <button type="submit" class="btn btn-primary w-full text-base">
+                    Join Waitlist
+                </button>
+                <div id="success-message" class="success-message">
+                    ✓ Thanks for joining! We'll be in touch soon.
+                </div>
+            </form>
+
+            <p class="text-sm text-gray-400 mt-6">
+                No spam. We respect your privacy. Early access coming soon.
+            </p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-12 border-t border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <div class="text-white font-800 mb-4">
+                        <span>nexo.</span><span class="text-teal">money</span>
+                    </div>
+                    <p class="text-sm">Corporate cards & expense management for Indian SMEs</p>
+                </div>
+                <div>
+                    <h4 class="text-white font-700 mb-4">Product</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#features" class="hover:text-teal transition-colors">Features</a></li>
+                        <li><a href="#pricing" class="hover:text-teal transition-colors">Pricing</a></li>
+                        <li><a href="/app" class="hover:text-teal transition-colors">Demo</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-700 mb-4">Company</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#" class="hover:text-teal transition-colors">About</a></li>
+                        <li><a href="#" class="hover:text-teal transition-colors">Blog</a></li>
+                        <li><a href="#" class="hover:text-teal transition-colors">Contact</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-700 mb-4">Legal</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#" class="hover:text-teal transition-colors">Privacy</a></li>
+                        <li><a href="#" class="hover:text-teal transition-colors">Terms</a></li>
+                        <li><a href="#" class="hover:text-teal transition-colors">Security</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-sm">© 2024 Nexo.money. All rights reserved.</p>
+                <p class="text-sm mt-4 md:mt-0">Made in India 🇮🇳</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Intersection Observer for fade-in animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        // Observe all fade-in elements
+        document.querySelectorAll('.fade-in, .slide-in-left, .slide-in-right').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Waitlist form handling
+        const waitlistForm = document.getElementById('waitlist-form');
+        const successMessage = document.getElementById('success-message');
+
+        waitlistForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const company = document.getElementById('company').value;
+
+            try {
+                const response = await fetch('/api/waitlist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, company })
+                });
+
+                if (response.ok) {
+                    // Show success message
+                    successMessage.classList.add('show');
+                    waitlistForm.reset();
+
+                    // Hide success message after 5 seconds
+                    setTimeout(() => {
+                        successMessage.classList.remove('show');
+                    }, 5000);
+                } else {
+                    alert('Something went wrong. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error submitting form. Please try again.');
+            }
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                const href = this.getAttribute('href');
+                if (href !== '#' && document.querySelector(href)) {
+                    e.preventDefault();
+                    document.querySelector(href).scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add scroll effect to navbar
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.1)';
+            } else {
+                nav.style.boxShadow = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
