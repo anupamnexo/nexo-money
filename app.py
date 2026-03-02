@@ -32,7 +32,7 @@ class BaseHandler(tornado.web.RequestHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
         self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.set_header("Content-Type", "application/json")
+        pass  # Content-Type set per handler
 
     def options(self, *args):
         """Handle CORS preflight."""
@@ -42,6 +42,7 @@ class BaseHandler(tornado.web.RequestHandler):
     def write_json(self, data, status_code=200):
         """Write JSON response."""
         self.set_status(status_code)
+        self.set_header("Content-Type", "application/json")
         self.write(json.dumps(data))
 
     def write_error(self, status_code, **kwargs):
