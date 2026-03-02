@@ -99,7 +99,7 @@
         };
 
         const formatCurrency = (amount) => {
-            return '₹' + amount.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+            return '₹' + (amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
         };
 
         const formatDate = (dateString) => {
