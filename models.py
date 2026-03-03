@@ -1,6 +1,7 @@
-""" 
+"""
 Nexo.money - Corporate Card & Expense Management Platform
 Database models and utilities for Indian SMEs
+With Role-Based Access Control (RBAC)
 """
 
 import sqlite3
@@ -12,8 +13,64 @@ from pathlib import Path
 
 # Database path
 DB_PATH = Path(__file__).parent / "nexo.db"
-# test change
 
+# ============================================================
+# RBAC Constants
+# ============================================================
+
+# Role hierarchy (lower number = higher privilege)
+ROLE_HIERARCHY = {
+    "super_admin": 0,
+    "company_admin": 1,
+    "admin": 2,
+    "manager": 3,
+    "employee": 4,
+}
+
+# What each role can do
+ROLE_PERMISSIONS = {
+    "super_admin": [
+        "platform_manage", "company_create", "company_manage", "all_data",
+    ],
+    "company_admin": [
+        "company_settings", "user_manage", "card_issue", "card_manage",
+        "expense_approve", "expense_view_all", "expense_submit",
+        "team_manage", "analytics", "gst", "budget_manage",
+    ],
+    "admin": [
+        "card_issue", "card_manage", "expense_approve", "expense_view_all",
+        "expense_submit", "team_view", "analytics", "gst", "budget_manage",
+    ],
+    "manager": [
+        "expense_approve_team", "expense_view_team", "team_view_own",
+        "expense_submit", "card_view_own",
+    ],
+    "employee": [
+        "expense_submit", "expense_view_own", "card_view_own",
+    ],
+}
+
+VALID_ROLES = list(ROLE_HIERARCHY.keys())
+
+
+def role_level(role):
+    """Get numeric level of a role (lower = more privileged)."""
+    return ROLE_HIERARCHY.get(role, 99)
+
+
+def has_permission(role, permission):
+    """Check if a role has a specific permission."""
+    return permission in ROLE_PERMISSIONS.get(role, [])
+
+
+def is_role_at_least(user_role, min_role):
+    """Check if user_role is at least as privileged as min_role."""
+    return role_level(user_role) <= role_level(min_role)
+
+
+# ============================================================
+# Database Setup
+# ============================================================
 
 def init_db():
     """Initialize database with all required tables."""
@@ -34,7 +91,7 @@ def init_db():
         )
     """)
 
-    # Users table
+    # Users table (company_id nullable for super_admin)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,8 +99,39 @@ def init_db():
             password_hash TEXT NOT NULL,
             name TEXT NOT NULL,
             role TEXT DEFAULT 'employee',
+            company_id INTEGER,
+            department TEXT,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id)
+        )
+    """)
+
+    # User teams (manager-employee relationships)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_teams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            manager_id INTEGER,
+            team_name TEXT,
             company_id INTEGER NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (manager_id) REFERENCES users(id),
+            FOREIGN KEY (company_id) REFERENCES companies(id)
+        )
+    """)
+
+    # Company settings (approval thresholds, etc.)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS company_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id INTEGER NOT NULL UNIQUE,
+            auto_approve_threshold REAL DEFAULT 5000,
+            manager_approval_limit REAL DEFAULT 50000,
+            admin_approval_limit REAL DEFAULT 200000,
+            requires_manager_approval INTEGER DEFAULT 1,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (company_id) REFERENCES companies(id)
         )
     """)
@@ -62,9 +150,11 @@ def init_db():
             spent_today REAL DEFAULT 0,
             spent_month REAL DEFAULT 0,
             merchant_category_restriction TEXT,
+            issued_by INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (company_id) REFERENCES companies(id),
-            FOREIGN KEY (user_id) REFERENCES users(id)
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (issued_by) REFERENCES users(id)
         )
     """)
 
@@ -88,6 +178,7 @@ def init_db():
             sgst REAL DEFAULT 0,
             status TEXT DEFAULT 'pending',
             approved_by INTEGER,
+            approval_level INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (company_id) REFERENCES companies(id),
             FOREIGN KEY (user_id) REFERENCES users(id),
@@ -104,6 +195,7 @@ def init_db():
             approver_id INTEGER NOT NULL,
             status TEXT DEFAULT 'pending',
             comment TEXT,
+            approval_level INTEGER DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (expense_id) REFERENCES expenses(id),
             FOREIGN KEY (approver_id) REFERENCES users(id)
@@ -179,48 +271,122 @@ def verify_password(stored_hash, password):
         return False
 
 
+def get_team_member_ids(conn, manager_id, company_id):
+    """Get list of user IDs that report to a manager."""
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT user_id FROM user_teams
+        WHERE manager_id = ? AND company_id = ?
+    """, (manager_id, company_id))
+    return [row["user_id"] for row in cursor.fetchall()]
+
+
+def get_company_settings(conn, company_id):
+    """Get company settings, with defaults."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM company_settings WHERE company_id = ?", (company_id,))
+    row = cursor.fetchone()
+    if row:
+        return dict(row)
+    return {
+        "auto_approve_threshold": 5000,
+        "manager_approval_limit": 50000,
+        "admin_approval_limit": 200000,
+        "requires_manager_approval": 1,
+    }
+
+
+# ============================================================
+# Demo Data Seeder
+# ============================================================
+
 def seed_demo_data():
-    """Populate database with realistic demo data for TechNova Solutions."""
+    """Populate database with realistic demo data."""
     conn = get_db()
     cursor = conn.cursor()
 
     try:
-        # Clear existing demo data
-        cursor.execute("DELETE FROM approvals")
-        cursor.execute("DELETE FROM expenses")
-        cursor.execute("DELETE FROM cards")
-        cursor.execute("DELETE FROM users")
-        cursor.execute("DELETE FROM budgets")
-        cursor.execute("DELETE FROM vendors")
-        cursor.execute("DELETE FROM companies")
+        # Clear existing data
+        for table in ["approvals", "expenses", "cards", "user_teams",
+                      "company_settings", "users", "budgets", "vendors", "companies"]:
+            cursor.execute(f"DELETE FROM {table}")
 
-        # Create company
+        # ---- Super Admin (platform-level, no company) ----
+        sa_hash = hash_password("admin123")
+        cursor.execute("""
+            INSERT INTO users (email, password_hash, name, role, company_id, department, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, ("platform@nexo.money", sa_hash, "Platform Admin", "super_admin", None, "Platform", "active"))
+        super_admin_id = cursor.lastrowid
+
+        # ---- Company 1: TechNova Solutions ----
         cursor.execute("""
             INSERT INTO companies (name, gstin, pan, industry, city, plan)
             VALUES (?, ?, ?, ?, ?, ?)
         """, ("TechNova Solutions", "29AABCT1234P1Z5", "AABCT1234P", "SaaS", "Bangalore", "premium"))
-        company_id = cursor.lastrowid
+        company1_id = cursor.lastrowid
 
-        # Create team members
-        team_data = [
-            ("priya.shah@technova.com", "Priya Shah", "admin"),
-            ("rajesh.kumar@technova.com", "Rajesh Kumar", "approver"),
-            ("neha.patel@technova.com", "Neha Patel", "employee"),
-            ("amit.singh@technova.com", "Amit Singh", "employee"),
-            ("deepak.gupta@technova.com", "Deepak Gupta", "approver"),
-            ("anjali.verma@technova.com", "Anjali Verma", "employee"),
+        # Company 1 settings
+        cursor.execute("""
+            INSERT INTO company_settings (company_id, auto_approve_threshold, manager_approval_limit, admin_approval_limit, requires_manager_approval)
+            VALUES (?, ?, ?, ?, ?)
+        """, (company1_id, 5000, 50000, 200000, 1))
+
+        # Company 1 team
+        team1_data = [
+            ("priya.shah@technova.com", "Priya Shah", "company_admin", "Management"),
+            ("rajesh.kumar@technova.com", "Rajesh Kumar", "admin", "Finance"),
+            ("deepak.gupta@technova.com", "Deepak Gupta", "manager", "Engineering"),
+            ("neha.patel@technova.com", "Neha Patel", "employee", "Engineering"),
+            ("amit.singh@technova.com", "Amit Singh", "employee", "Engineering"),
+            ("anjali.verma@technova.com", "Anjali Verma", "employee", "Sales"),
         ]
 
         user_ids = {}
-        for email, name, role in team_data:
+        for email, name, role, dept in team1_data:
             pwd_hash = hash_password("demo123")
             cursor.execute("""
-                INSERT INTO users (email, password_hash, name, role, company_id)
-                VALUES (?, ?, ?, ?, ?)
-            """, (email, pwd_hash, name, role, company_id))
+                INSERT INTO users (email, password_hash, name, role, company_id, department, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (email, pwd_hash, name, role, company1_id, dept, "active"))
             user_ids[name] = cursor.lastrowid
 
-        # Create cards for employees
+        # Set up team relationships: Deepak (manager) manages Neha, Amit, Anjali
+        for emp_name in ["Neha Patel", "Amit Singh", "Anjali Verma"]:
+            cursor.execute("""
+                INSERT INTO user_teams (user_id, manager_id, team_name, company_id)
+                VALUES (?, ?, ?, ?)
+            """, (user_ids[emp_name], user_ids["Deepak Gupta"], "Engineering", company1_id))
+
+        # ---- Company 2: GreenLeaf Organics ----
+        cursor.execute("""
+            INSERT INTO companies (name, gstin, pan, industry, city, plan)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, ("GreenLeaf Organics", "07AABCG5678Q1Z3", "AABCG5678Q", "Agriculture", "Delhi", "starter"))
+        company2_id = cursor.lastrowid
+
+        # Company 2 settings
+        cursor.execute("""
+            INSERT INTO company_settings (company_id, auto_approve_threshold, manager_approval_limit, admin_approval_limit, requires_manager_approval)
+            VALUES (?, ?, ?, ?, ?)
+        """, (company2_id, 3000, 30000, 100000, 1))
+
+        # Company 2 team
+        team2_data = [
+            ("vikram.mehta@greenleaf.com", "Vikram Mehta", "company_admin", "Management"),
+            ("sonia.kapoor@greenleaf.com", "Sonia Kapoor", "employee", "Operations"),
+            ("ravi.sharma@greenleaf.com", "Ravi Sharma", "employee", "Sales"),
+        ]
+
+        for email, name, role, dept in team2_data:
+            pwd_hash = hash_password("demo123")
+            cursor.execute("""
+                INSERT INTO users (email, password_hash, name, role, company_id, department, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (email, pwd_hash, name, role, company2_id, dept, "active"))
+            user_ids[name] = cursor.lastrowid
+
+        # ---- Cards for Company 1 ----
         card_data = [
             (user_ids["Neha Patel"], "virtual", 25000, 150000),
             (user_ids["Neha Patel"], "physical", 25000, 150000),
@@ -241,12 +407,24 @@ def seed_demo_data():
             last_four = str(4500 + i).zfill(4)
             masked = f"**** **** **** {last_four}"
             cursor.execute("""
-                INSERT INTO cards (company_id, user_id, card_number, card_type, daily_limit, monthly_limit)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (company_id, user_id, masked, card_type, daily, monthly))
+                INSERT INTO cards (company_id, user_id, card_number, card_type, daily_limit, monthly_limit, issued_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (company1_id, user_id, masked, card_type, daily, monthly, user_ids["Priya Shah"]))
             card_ids.append(cursor.lastrowid)
 
-        # Create budgets
+        # Cards for Company 2
+        for i, (user_id, card_type, daily, monthly) in enumerate([
+            (user_ids["Sonia Kapoor"], "virtual", 20000, 100000),
+            (user_ids["Ravi Sharma"], "virtual", 20000, 100000),
+        ], 13):
+            last_four = str(4500 + i).zfill(4)
+            masked = f"**** **** **** {last_four}"
+            cursor.execute("""
+                INSERT INTO cards (company_id, user_id, card_number, card_type, daily_limit, monthly_limit, issued_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (company2_id, user_id, masked, card_type, daily, monthly, user_ids["Vikram Mehta"]))
+
+        # ---- Budgets for Company 1 ----
         budgets = [
             ("Engineering", "software", 500000, "2026-03"),
             ("Sales", "travel", 300000, "2026-03"),
@@ -254,14 +432,13 @@ def seed_demo_data():
             ("HR", "meals", 100000, "2026-03"),
             (None, "marketing", 250000, "2026-03"),
         ]
-
         for team, category, limit, period in budgets:
             cursor.execute("""
                 INSERT INTO budgets (company_id, team, category, monthly_limit, period)
                 VALUES (?, ?, ?, ?, ?)
-            """, (company_id, team, category, limit, period))
+            """, (company1_id, team, category, limit, period))
 
-        # Create vendors
+        # ---- Vendors for Company 1 ----
         vendors_list = [
             ("Uber", "18AAFCU5055K1ZO"),
             ("Zomato", "09AAACR5055K2Z0"),
@@ -269,16 +446,15 @@ def seed_demo_data():
             ("AWS India", "18AAHCU3044R1Z2"),
             ("Google Cloud", "27AAACR6789P1Z0"),
         ]
-
         vendor_ids = {}
         for name, gstin in vendors_list:
             cursor.execute("""
                 INSERT INTO vendors (company_id, name, gstin)
                 VALUES (?, ?, ?)
-            """, (company_id, name, gstin))
+            """, (company1_id, name, gstin))
             vendor_ids[name] = cursor.lastrowid
 
-        # Create expenses with realistic data
+        # ---- Expenses for Company 1 ----
         categories = ["travel", "meals", "office", "software", "marketing", "other"]
         merchants = {
             "travel": ["Uber", "Ola", "IndiGo", "SpiceJet", "MakeMyTrip"],
@@ -289,20 +465,15 @@ def seed_demo_data():
             "other": ["MiscExpense1", "MiscExpense2", "Repairs", "Utilities"],
         }
 
-        approvers = [user_ids["Rajesh Kumar"], user_ids["Deepak Gupta"]]
-
-        # Generate expenses for last 6 months
         now = datetime.now()
         expenses_created = 0
 
         for days_back in range(180, -1, -15):
-            for _ in range(14):  # ~2 weeks of expenses
+            for _ in range(14):
                 exp_date = now - timedelta(days=days_back)
-
                 category = categories[expenses_created % len(categories)]
                 merchant = merchants[category][expenses_created % len(merchants[category])]
 
-                # Vary amounts
                 if category == "software":
                     amount = 5000 + (expenses_created * 73) % 25000
                 elif category == "travel":
@@ -314,47 +485,53 @@ def seed_demo_data():
                 else:
                     amount = 1500 + (expenses_created * 79) % 10000
 
-                # Auto-approve if under 5000, else pending
                 auto_approve = amount < 5000
-
-                # Calculate GST
-                gst_rate = 0.05 if amount < 5000 else 0.18  # Simplified
+                gst_rate = 0.05 if amount < 5000 else 0.18
                 gst_amount = amount * gst_rate
-                igst = gst_amount * 0.8  # Simplified distribution
+                igst = gst_amount * 0.8
                 cgst = gst_amount * 0.1
                 sgst = gst_amount * 0.1
 
                 card_id = card_ids[expenses_created % len(card_ids)]
-                user_id = user_ids[["Neha Patel", "Amit Singh", "Anjali Verma"][expenses_created % 3]]
+                emp_names = ["Neha Patel", "Amit Singh", "Anjali Verma"]
+                user_id = user_ids[emp_names[expenses_created % 3]]
+
+                status = "auto_approved" if auto_approve else "pending"
+                approved_by = user_ids["Deepak Gupta"] if auto_approve else None
 
                 cursor.execute("""
                     INSERT INTO expenses (
                         company_id, user_id, card_id, amount, merchant_name, category,
                         description, gstin_vendor, gst_amount, igst, cgst, sgst,
-                        status, approved_by, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        status, approved_by, approval_level, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    company_id, user_id, card_id, amount, merchant, category,
+                    company1_id, user_id, card_id, amount, merchant, category,
                     f"Business expense for {category}", vendor_ids.get(merchant),
                     gst_amount, igst, cgst, sgst,
-                    "auto_approved" if auto_approve else "pending",
-                    approvers[expenses_created % 2] if auto_approve else None,
+                    status, approved_by, 0 if auto_approve else 1,
                     exp_date.isoformat()
                 ))
 
                 expense_id = cursor.lastrowid
 
-                # Create approval record if not auto-approved
                 if not auto_approve:
+                    # Assign to manager (Deepak) for approval
                     cursor.execute("""
-                        INSERT INTO approvals (expense_id, approver_id, status, created_at)
-                        VALUES (?, ?, ?, ?)
-                    """, (expense_id, approvers[expenses_created % 2], "pending", exp_date.isoformat()))
+                        INSERT INTO approvals (expense_id, approver_id, status, approval_level, created_at)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (expense_id, user_ids["Deepak Gupta"], "pending", 1, exp_date.isoformat()))
 
                 expenses_created += 1
 
         conn.commit()
-        print(f"Demo data seeded: {expenses_created} expenses, 12 cards, 6 team members, 5 budgets")
+        print(f"Demo data seeded: {expenses_created} expenses, 2 companies, 9 users, 5 roles")
+        print("Demo logins:")
+        print("  Super Admin:   platform@nexo.money / admin123")
+        print("  Company Admin: priya.shah@technova.com / demo123")
+        print("  Admin:         rajesh.kumar@technova.com / demo123")
+        print("  Manager:       deepak.gupta@technova.com / demo123")
+        print("  Employee:      neha.patel@technova.com / demo123")
 
     except Exception as e:
         conn.rollback()
@@ -366,11 +543,8 @@ def seed_demo_data():
 
 # Quick test
 if __name__ == "__main__":
-    # Remove old database
     if DB_PATH.exists():
         DB_PATH.unlink()
-
-    # Initialize and seed
     init_db()
     seed_demo_data()
     print("Database initialized successfully!")
