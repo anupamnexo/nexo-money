@@ -242,6 +242,30 @@ def init_db():
         )
     """)
 
+    # ========== Schema Migration ==========
+    # Add missing columns to existing tables (handles upgrades from pre-RBAC schema)
+    def add_column_if_missing(cursor, table, column, col_type):
+        cols = [row[1] for row in cursor.execute(f"PRAGMA table_info({table})").fetchall()]
+        if column not in cols:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+            except Exception:
+                pass
+
+    # Users table migrations
+    add_column_if_missing(cursor, 'users', 'department', 'TEXT')
+    add_column_if_missing(cursor, 'users', 'status', "TEXT DEFAULT 'active'")
+
+    # Expenses table migrations
+    add_column_if_missing(cursor, 'expenses', 'approval_level', 'INTEGER DEFAULT 0')
+
+    # Approvals table migrations
+    add_column_if_missing(cursor, 'approvals', 'approval_level', 'INTEGER DEFAULT 1')
+
+    # Migrate old role names to new ones
+    cursor.execute("UPDATE users SET role='company_admin' WHERE role='admin'")
+    cursor.execute("UPDATE users SET role='manager' WHERE role='approver'")
+
     conn.commit()
     conn.close()
 
