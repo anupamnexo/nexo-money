@@ -1,4 +1,4 @@
-"""
+""" 
 Nexo.money - Corporate Card & Expense Management Platform
 Database models and utilities for Indian SMEs
 """
