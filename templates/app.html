@@ -9,12 +9,10 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-        <script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+    <script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
     <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
     <style>
-        * {
-            font-family: 'Inter', sans-serif;
-        }
+        * { font-family: 'Inter', sans-serif; }
         :root {
             --navy: #0F1B2D;
             --teal: #00D09C;
@@ -23,42 +21,14 @@
             --coral: #FF6B6B;
             --gold: #FFC107;
         }
-        .sidebar {
-            transition: transform 0.3s ease;
-        }
-        .sidebar.closed {
-            transform: translateX(-100%);
-        }
-        .card-gradient {
-            background: linear-gradient(135deg, #1a2f4f 0%, #0F1B2D 100%);
-        }
-        .toast {
-            animation: slideIn 0.3s ease;
-        }
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .modal-overlay {
-            animation: fadeIn 0.2s ease;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+        .sidebar { transition: transform 0.3s ease; }
+        .sidebar.closed { transform: translateX(-100%); }
+        .card-gradient { background: linear-gradient(135deg, #1a2f4f 0%, #0F1B2D 100%); }
+        .toast { animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .modal-overlay { animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .trend-up { color: #00D09C; }
         .trend-down { color: #FF6B6B; }
     </style>
@@ -81,10 +51,7 @@
                 ...options.headers
             };
 
-            const response = await fetch(`${API_BASE}${endpoint}`, {
-                ...options,
-                headers
-            });
+            const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
 
             if (!response.ok) {
                 if (response.status === 401) {
@@ -92,19 +59,15 @@
                     localStorage.removeItem('user');
                     window.location.hash = '#/login';
                 }
-                throw new Error(`API Error: ${response.status}`);
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || `API Error: ${response.status}`);
             }
 
             return response.json();
         };
 
-        const formatCurrency = (amount) => {
-            return '₹' + (amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        };
-
-        const formatDate = (dateString) => {
-            return new Date(dateString).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
-        };
+        const formatCurrency = (amount) => '₹' + (amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
         const getStatusColor = (status) => {
             const colors = {
@@ -113,14 +76,49 @@
                 'rejected': { bg: 'bg-red-100', text: 'text-red-800' },
                 'auto_approved': { bg: 'bg-blue-100', text: 'text-blue-800' },
                 'active': { bg: 'bg-green-100', text: 'text-green-800' },
-                'frozen': { bg: 'bg-red-100', text: 'text-red-800' }
+                'frozen': { bg: 'bg-red-100', text: 'text-red-800' },
+                'inactive': { bg: 'bg-gray-100', text: 'text-gray-800' }
             };
             return colors[status] || colors['pending'];
         };
 
+        // Role utilities
+        const getRoleBadgeStyle = (role) => {
+            const styles = {
+                'super_admin': 'bg-red-100 text-red-800',
+                'company_admin': 'bg-purple-100 text-purple-800',
+                'admin': 'bg-blue-100 text-blue-800',
+                'manager': 'bg-teal-100 text-teal-800',
+                'employee': 'bg-gray-100 text-gray-800'
+            };
+            return styles[role] || styles['employee'];
+        };
+
+        const getRoleLabel = (role) => {
+            const labels = {
+                'super_admin': 'SUPER ADMIN',
+                'company_admin': 'COMPANY ADMIN',
+                'admin': 'ADMIN',
+                'manager': 'MANAGER',
+                'employee': 'EMPLOYEE'
+            };
+            return labels[role] || role?.toUpperCase();
+        };
+
+        const getUserRole = () => {
+            try {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                return user.role || 'employee';
+            } catch { return 'employee'; }
+        };
+
+        const isRoleAtLeast = (userRole, minRole) => {
+            const hierarchy = { super_admin: 0, company_admin: 1, admin: 2, manager: 3, employee: 4 };
+            return (hierarchy[userRole] || 4) <= (hierarchy[minRole] || 4);
+        };
+
         // ==================== Toast Context ====================
         const ToastContext = createContext();
-
         const useToast = () => {
             const context = useContext(ToastContext);
             if (!context) throw new Error('useToast must be used within ToastProvider');
@@ -129,15 +127,11 @@
 
         const ToastProvider = ({ children }) => {
             const [toasts, setToasts] = useState([]);
-
             const addToast = (message, type = 'success') => {
                 const id = Date.now();
                 setToasts(prev => [...prev, { id, message, type }]);
-                setTimeout(() => {
-                    setToasts(prev => prev.filter(t => t.id !== id));
-                }, 3000);
+                setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
             };
-
             return (
                 <ToastContext.Provider value={{ addToast }}>
                     {children}
@@ -153,20 +147,23 @@
         };
 
         // ==================== Shared Components ====================
-        const Sidebar = ({ isOpen, toggleSidebar, userEmail, onLogout }) => {
+        const Sidebar = ({ isOpen, toggleSidebar, userEmail, userRole, onLogout }) => {
             const currentHash = window.location.hash || '#/dashboard';
-
             const isActive = (hash) => currentHash === hash;
 
-            const navItems = [
-                { label: 'Dashboard', hash: '#/dashboard', icon: '📊' },
-                { label: 'Cards', hash: '#/cards', icon: '💳' },
-                { label: 'Expenses', hash: '#/expenses', icon: '📋' },
-                { label: 'Approvals', hash: '#/approvals', icon: '✓' },
-                { label: 'GST Tracker', hash: '#/gst', icon: '📈' },
-                { label: 'Team', hash: '#/team', icon: '👥' },
-                { label: 'Analytics', hash: '#/analytics', icon: '📉' }
+            const allNavItems = [
+                { label: 'Dashboard', hash: '#/dashboard', icon: '📊', roles: ['super_admin', 'company_admin', 'admin', 'manager', 'employee'] },
+                { label: 'Companies', hash: '#/companies', icon: '🏢', roles: ['super_admin'] },
+                { label: 'Cards', hash: '#/cards', icon: '💳', roles: ['company_admin', 'admin', 'manager', 'employee'] },
+                { label: 'Expenses', hash: '#/expenses', icon: '📋', roles: ['company_admin', 'admin', 'manager', 'employee'] },
+                { label: 'Approvals', hash: '#/approvals', icon: '✓', roles: ['company_admin', 'admin', 'manager'] },
+                { label: 'GST Tracker', hash: '#/gst', icon: '📈', roles: ['super_admin', 'company_admin', 'admin'] },
+                { label: 'Team', hash: '#/team', icon: '👥', roles: ['super_admin', 'company_admin', 'admin', 'manager'] },
+                { label: 'Settings', hash: '#/settings', icon: '⚙️', roles: ['company_admin'] },
+                { label: 'Analytics', hash: '#/analytics', icon: '📉', roles: ['super_admin', 'company_admin', 'admin', 'manager'] },
             ];
+
+            const navItems = allNavItems.filter(item => item.roles.includes(userRole));
 
             return (
                 <>
@@ -191,35 +188,32 @@
                         </nav>
 
                         <div className="p-4 border-t border-blue-800 space-y-3">
-                            <div className="text-xs text-blue-300">
+                            <div className="text-xs text-blue-300 space-y-1">
                                 <p className="truncate">{userEmail}</p>
+                                <span className={`badge ${getRoleBadgeStyle(userRole)}`}>{getRoleLabel(userRole)}</span>
                             </div>
-                            <button onClick={onLogout} className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg text-sm font-medium">
-                                Logout
-                            </button>
+                            <button onClick={onLogout} className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg text-sm font-medium">Logout</button>
                         </div>
                     </div>
                 </>
             );
         };
 
-        const TopBar = ({ toggleSidebar, userName }) => {
-            return (
-                <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                    <button onClick={toggleSidebar} className="lg:hidden text-navy text-xl">☰</button>
-                    <div className="flex-1 flex items-center gap-2 lg:hidden">
-                        <span className="text-sm font-semibold text-navy">Nexo</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <span className="text-sm text-muted">{userName}</span>
-                    </div>
+        const TopBar = ({ toggleSidebar, userName, userRole }) => (
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <button onClick={toggleSidebar} className="lg:hidden text-navy text-xl">☰</button>
+                <div className="flex-1 flex items-center gap-2 lg:hidden">
+                    <span className="text-sm font-semibold text-navy">Nexo</span>
                 </div>
-            );
-        };
+                <div className="flex items-center gap-3">
+                    <span className={`badge ${getRoleBadgeStyle(userRole)}`}>{getRoleLabel(userRole)}</span>
+                    <span className="text-sm text-muted">{userName}</span>
+                </div>
+            </div>
+        );
 
         const Modal = ({ isOpen, onClose, title, children }) => {
             if (!isOpen) return null;
-
             return (
                 <div className="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
                     <div className="bg-white rounded-lg shadow-lg max-w-md w-full mx-4 max-h-96 overflow-y-auto">
@@ -227,41 +221,31 @@
                             <h2 className="text-lg font-bold text-navy">{title}</h2>
                             <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
                         </div>
-                        <div className="p-6">
-                            {children}
-                        </div>
+                        <div className="p-6">{children}</div>
                     </div>
                 </div>
             );
         };
 
-        const StatCard = ({ label, value, trend, trendValue, icon }) => {
-            return (
-                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-sm text-muted font-medium">{label}</p>
-                            <p className="text-2xl font-bold text-navy mt-2">{value}</p>
-                            {trendValue && (
-                                <p className={`text-xs mt-2 ${trend === 'up' ? 'trend-up' : 'trend-down'}`}>
-                                    {trend === 'up' ? '↑' : '↓'} {trendValue} from last month
-                                </p>
-                            )}
-                        </div>
-                        <div className="text-3xl">{icon}</div>
+        const StatCard = ({ label, value, trend, trendValue, icon }) => (
+            <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
+                <div className="flex items-start justify-between">
+                    <div>
+                        <p className="text-sm text-muted font-medium">{label}</p>
+                        <p className="text-2xl font-bold text-navy mt-2">{value}</p>
+                        {trendValue && <p className={`text-xs mt-2 ${trend === 'up' ? 'trend-up' : 'trend-down'}`}>{trend === 'up' ? '↑' : '↓'} {trendValue} from last month</p>}
                     </div>
+                    <div className="text-3xl">{icon}</div>
                 </div>
-            );
-        };
+            </div>
+        );
 
         const Badge = ({ status }) => {
             const colors = getStatusColor(status);
-            return (
-                <span className={`badge ${colors.bg} ${colors.text}`}>
-                    {status.replace('_', ' ').toUpperCase()}
-                </span>
-            );
+            return <span className={`badge ${colors.bg} ${colors.text}`}>{(status || '').replace('_', ' ').toUpperCase()}</span>;
         };
+
+        const RoleBadge = ({ role }) => <span className={`badge ${getRoleBadgeStyle(role)}`}>{getRoleLabel(role)}</span>;
 
         const LoadingSpinner = () => (
             <div className="flex justify-center items-center p-12">
@@ -277,6 +261,8 @@
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
             const [isLogin, setIsLogin] = useState(true);
+            const [companyName, setCompanyName] = useState('');
+            const [name, setName] = useState('');
             const [loading, setLoading] = useState(false);
             const { addToast } = useToast();
 
@@ -285,15 +271,19 @@
                 setLoading(true);
                 try {
                     const endpoint = isLogin ? '/auth/login' : '/auth/register';
+                    const body = isLogin
+                        ? { email, password }
+                        : { email, password, name: name, company_name: companyName };
                     const data = await apiCall(endpoint, {
                         method: 'POST',
-                        body: JSON.stringify({ email, password })
+                        body: JSON.stringify(body)
                     });
-
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
+                    if (data.companies) localStorage.setItem('companies', JSON.stringify(data.companies));
                     addToast(isLogin ? 'Login successful!' : 'Registration successful!', 'success');
                     window.location.hash = '#/dashboard';
+                    window.location.reload();
                 } catch (err) {
                     addToast(err.message, 'error');
                 } finally {
@@ -301,9 +291,32 @@
                 }
             };
 
-            const handleDemoLogin = async () => {
-                setEmail('priya.shah@technova.com');
-                setPassword('demo123');
+            const demoAccounts = [
+                { label: 'Super Admin', email: 'platform@nexo.money', password: 'admin123', color: 'bg-red-500' },
+                { label: 'Company Admin', email: 'priya.shah@technova.com', password: 'demo123', color: 'bg-purple-500' },
+                { label: 'Admin', email: 'rajesh.kumar@technova.com', password: 'demo123', color: 'bg-blue-500' },
+                { label: 'Manager', email: 'deepak.gupta@technova.com', password: 'demo123', color: 'bg-teal-500' },
+                { label: 'Employee', email: 'neha.patel@technova.com', password: 'demo123', color: 'bg-gray-500' },
+            ];
+
+            const handleDemoLogin = async (account) => {
+                setLoading(true);
+                try {
+                    const data = await apiCall('/auth/login', {
+                        method: 'POST',
+                        body: JSON.stringify({ email: account.email, password: account.password })
+                    });
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    if (data.companies) localStorage.setItem('companies', JSON.stringify(data.companies));
+                    addToast(`Logged in as ${account.label}!`, 'success');
+                    window.location.hash = '#/dashboard';
+                    window.location.reload();
+                } catch (err) {
+                    addToast(err.message, 'error');
+                } finally {
+                    setLoading(false);
+                }
             };
 
             return (
@@ -316,25 +329,40 @@
                             </div>
 
                             <form onSubmit={handleSubmit} className="space-y-4">
+                                {!isLogin && (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-navy mb-2">Your Name</label>
+                                            <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="John Doe" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-navy mb-2">Company Name</label>
+                                            <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="Acme Corp" />
+                                        </div>
+                                    </>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-navy mb-2">Email</label>
                                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="you@example.com" />
                                 </div>
-
                                 <div>
                                     <label className="block text-sm font-medium text-navy mb-2">Password</label>
                                     <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="••••••••" />
                                 </div>
-
-                                <button type="submit" disabled={loading} className="w-full py-2 px-4 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }} disabled={loading}>
-                                    {loading ? 'Loading...' : isLogin ? 'Login' : 'Register'}
+                                <button type="submit" disabled={loading} className="w-full py-2 px-4 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>
+                                    {loading ? 'Loading...' : isLogin ? 'Login' : 'Register Company'}
                                 </button>
                             </form>
 
                             <div className="mt-6">
-                                <button onClick={handleDemoLogin} className="w-full py-2 px-4 border-2 border-teal-400 rounded-lg font-semibold text-teal-600 hover:bg-teal-50">
-                                    Demo Login
-                                </button>
+                                <p className="text-xs text-muted text-center mb-3">Quick Demo Login</p>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {demoAccounts.map(account => (
+                                        <button key={account.email} onClick={() => handleDemoLogin(account)} disabled={loading} className={`w-full py-2 px-4 ${account.color} text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity`}>
+                                            {account.label} — {account.email}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             <div className="mt-4 text-center">
@@ -358,50 +386,33 @@
             const [transactions, setTransactions] = useState([]);
             const [budgets, setBudgets] = useState([]);
             const [loading, setLoading] = useState(true);
+            const role = getUserRole();
 
             useEffect(() => {
                 const fetchData = async () => {
                     try {
-                        const [dashboardRes, gstRes] = await Promise.all([
-                            apiCall('/dashboard'),
-                            apiCall('/gst')
-                        ]);
+                        const promises = [apiCall('/dashboard')];
+                        // Only fetch GST for admin+ roles
+                        if (isRoleAtLeast(role, 'admin')) {
+                            promises.push(apiCall('/gst'));
+                        }
 
-                        const dashData = dashboardRes.dashboard;
+                        const results = await Promise.all(promises);
+                        const dashData = results[0].dashboard;
                         setDashboard(dashData);
-                        setGstData(gstRes.gst);
+                        if (results[1]) setGstData(results[1].gst);
 
-                        // Transform spend_by_category object to array for PieChart
-                        const categoryArray = Object.entries(dashData.spend_by_category || {}).map(([name, value]) => ({
-                            name,
-                            value
-                        }));
+                        const categoryArray = Object.entries(dashData.spend_by_category || {}).map(([name, value]) => ({ name, value }));
                         setCategoryData(categoryArray);
 
-                        // Transform spend_by_team object to array for BarChart
-                        const teamArray = Object.entries(dashData.spend_by_team || {}).map(([name, value]) => ({
-                            name,
-                            value
-                        }));
+                        const teamArray = Object.entries(dashData.spend_by_team || {}).map(([name, value]) => ({ name, value }));
                         setTeamData(teamArray);
 
-                        // Transform gst_by_month for spend trend (using as proxy)
-                        const spendArray = Object.entries(dashData.spend_by_category || {}).map(([month, amount]) => ({
-                            month,
-                            amount
-                        }));
+                        const spendArray = Object.entries(dashData.spend_by_category || {}).map(([month, amount]) => ({ month, amount }));
                         setSpendData(spendArray);
 
                         setTransactions(dashData.recent_transactions || []);
-
-                        // Transform budget_utilization to proper format
-                        const budgetArray = (dashData.budget_utilization || []).map(b => ({
-                            ...b,
-                            category: b.category || `${b.team} - ${b.category}`,
-                            spent: b.spent_this_month,
-                            limit: b.monthly_limit
-                        }));
-                        setBudgets(budgetArray);
+                        setBudgets(dashData.budget_utilization || []);
                     } catch (err) {
                         console.error('Error fetching dashboard data:', err);
                     } finally {
@@ -417,19 +428,23 @@
 
             return (
                 <div className="space-y-6">
-                    {/* Top Stats */}
+                    {role === 'super_admin' && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <p className="text-sm text-red-800 font-medium">Platform Admin View — Showing aggregated data across all companies</p>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <StatCard label="Total Spend (Month)" value={formatCurrency(dashboard?.total_spend_month || 0)} icon="💰" />
                         <StatCard label="Active Cards" value={dashboard?.active_cards || 0} icon="💳" />
                         <StatCard label="Pending Approvals" value={dashboard?.pending_approvals || 0} icon="⏳" />
-                        <StatCard label="GST ITC Claimable" value={formatCurrency(gstData?.claimable_itc || 0)} icon="📈" />
+                        {gstData && <StatCard label="GST ITC Claimable" value={formatCurrency(gstData?.claimable_itc || 0)} icon="📈" />}
+                        {!gstData && <StatCard label="Today's Spend" value={formatCurrency(dashboard?.total_spend_today || 0)} icon="📅" />}
                     </div>
 
-                    {/* Charts Row */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Spend Trend */}
                         <div className="bg-white rounded-lg p-6 shadow-sm">
-                            <h3 className="text-lg font-bold text-navy mb-4">Spend Trend (6 Months)</h3>
+                            <h3 className="text-lg font-bold text-navy mb-4">Spend by Category</h3>
                             <ResponsiveContainer width="100%" height={300}>
                                 <AreaChart data={spendData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -441,9 +456,8 @@
                             </ResponsiveContainer>
                         </div>
 
-                        {/* Category Breakdown */}
                         <div className="bg-white rounded-lg p-6 shadow-sm">
-                            <h3 className="text-lg font-bold text-navy mb-4">Spend by Category</h3>
+                            <h3 className="text-lg font-bold text-navy mb-4">Category Breakdown</h3>
                             <ResponsiveContainer width="100%" height={300}>
                                 <PieChart>
                                     <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
@@ -457,25 +471,25 @@
                         </div>
                     </div>
 
-                    {/* Budgets */}
-                    <div className="bg-white rounded-lg p-6 shadow-sm">
-                        <h3 className="text-lg font-bold text-navy mb-4">Budget Utilization</h3>
-                        <div className="space-y-4">
-                            {budgets.map((budget, idx) => (
-                                <div key={idx}>
-                                    <div className="flex justify-between mb-2">
-                                        <span className="text-sm font-medium text-navy">{budget.category}</span>
-                                        <span className="text-sm text-muted">{formatCurrency(budget.spent)} / {formatCurrency(budget.limit)}</span>
+                    {budgets.length > 0 && isRoleAtLeast(role, 'admin') && (
+                        <div className="bg-white rounded-lg p-6 shadow-sm">
+                            <h3 className="text-lg font-bold text-navy mb-4">Budget Utilization</h3>
+                            <div className="space-y-4">
+                                {budgets.map((budget, idx) => (
+                                    <div key={idx}>
+                                        <div className="flex justify-between mb-2">
+                                            <span className="text-sm font-medium text-navy">{budget.category}</span>
+                                            <span className="text-sm text-muted">{formatCurrency(budget.spent)} / {formatCurrency(budget.limit)}</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div className="bg-teal-500 h-2 rounded-full transition-all" style={{ width: `${Math.min((budget.spent / budget.limit) * 100, 100)}%`, backgroundColor: 'var(--teal)' }}></div>
+                                        </div>
                                     </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div className="bg-teal-500 h-2 rounded-full transition-all" style={{ width: `${(budget.spent / budget.limit) * 100}%`, backgroundColor: 'var(--teal)' }}></div>
-                                    </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* Recent Transactions */}
                     <div className="bg-white rounded-lg p-6 shadow-sm">
                         <h3 className="text-lg font-bold text-navy mb-4">Recent Transactions</h3>
                         <div className="overflow-x-auto">
@@ -491,7 +505,7 @@
                                 <tbody>
                                     {transactions.map((txn, idx) => (
                                         <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                                            <td className="py-3 text-navy font-medium">{txn.merchant}</td>
+                                            <td className="py-3 text-navy font-medium">{txn.merchant_name || txn.merchant}</td>
                                             <td className="py-3 text-muted">{txn.category}</td>
                                             <td className="py-3 text-right text-navy font-semibold">{formatCurrency(txn.amount)}</td>
                                             <td className="py-3"><Badge status={txn.status} /></td>
@@ -505,6 +519,186 @@
             );
         };
 
+        // ==================== Companies Page (Super Admin) ====================
+        const CompaniesPage = () => {
+            const [companies, setCompanies] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [showModal, setShowModal] = useState(false);
+            const [newCompany, setNewCompany] = useState({ name: '', gstin: '', industry: '', city: '', plan: 'free' });
+            const { addToast } = useToast();
+
+            useEffect(() => {
+                const fetchCompanies = async () => {
+                    try {
+                        const data = await apiCall('/admin/companies');
+                        setCompanies(data.companies || []);
+                    } catch (err) {
+                        addToast('Error loading companies', 'error');
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                fetchCompanies();
+            }, []);
+
+            const handleCreateCompany = async () => {
+                if (!newCompany.name) { addToast('Company name required', 'error'); return; }
+                try {
+                    await apiCall('/admin/companies', { method: 'POST', body: JSON.stringify(newCompany) });
+                    addToast('Company created!', 'success');
+                    setShowModal(false);
+                    setNewCompany({ name: '', gstin: '', industry: '', city: '', plan: 'free' });
+                    const data = await apiCall('/admin/companies');
+                    setCompanies(data.companies || []);
+                } catch (err) {
+                    addToast(err.message, 'error');
+                }
+            };
+
+            if (loading) return <LoadingSpinner />;
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h1 className="text-2xl font-bold text-navy">Companies</h1>
+                        <button onClick={() => setShowModal(true)} className="px-6 py-2 rounded-lg font-semibold" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>+ Create Company</button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {companies.map(company => (
+                            <div key={company.id} className="bg-white rounded-lg p-6 shadow-sm border-t-4" style={{ borderColor: 'var(--teal)' }}>
+                                <h3 className="text-lg font-bold text-navy mb-2">{company.name}</h3>
+                                <p className="text-sm text-muted mb-4">{company.industry || 'N/A'} · {company.city || 'N/A'}</p>
+                                <div className="grid grid-cols-3 gap-4 mb-4 pt-4 border-t border-gray-200">
+                                    <div><p className="text-xs text-muted">Users</p><p className="text-xl font-bold text-navy">{company.user_count || 0}</p></div>
+                                    <div><p className="text-xs text-muted">Cards</p><p className="text-xl font-bold text-navy">{company.card_count || 0}</p></div>
+                                    <div><p className="text-xs text-muted">Spend</p><p className="text-lg font-bold text-navy">{formatCurrency(company.total_spend || 0)}</p></div>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <Badge status={company.plan || 'free'} />
+                                    <span className="text-xs text-muted">{company.gstin || 'No GSTIN'}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Create New Company">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-navy mb-2">Company Name *</label>
+                                <input type="text" value={newCompany.name} onChange={(e) => setNewCompany({...newCompany, name: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-navy mb-2">GSTIN</label>
+                                <input type="text" value={newCompany.gstin} onChange={(e) => setNewCompany({...newCompany, gstin: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-navy mb-2">Industry</label>
+                                    <input type="text" value={newCompany.industry} onChange={(e) => setNewCompany({...newCompany, industry: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-navy mb-2">City</label>
+                                    <input type="text" value={newCompany.city} onChange={(e) => setNewCompany({...newCompany, city: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-navy mb-2">Plan</label>
+                                <select value={newCompany.plan} onChange={(e) => setNewCompany({...newCompany, plan: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                                    <option value="free">Free</option>
+                                    <option value="starter">Starter</option>
+                                    <option value="premium">Premium</option>
+                                    <option value="enterprise">Enterprise</option>
+                                </select>
+                            </div>
+                            <button onClick={handleCreateCompany} className="w-full py-2 px-4 rounded-lg font-semibold" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>Create Company</button>
+                        </div>
+                    </Modal>
+                </div>
+            );
+        };
+
+        // ==================== Settings Page (Company Admin) ====================
+        const SettingsPage = () => {
+            const [settings, setSettings] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [saving, setSaving] = useState(false);
+            const { addToast } = useToast();
+
+            useEffect(() => {
+                const fetchSettings = async () => {
+                    try {
+                        const data = await apiCall('/company/settings');
+                        setSettings(data.settings || {});
+                    } catch (err) {
+                        addToast('Error loading settings', 'error');
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                fetchSettings();
+            }, []);
+
+            const handleSave = async () => {
+                setSaving(true);
+                try {
+                    const data = await apiCall('/company/settings', { method: 'PUT', body: JSON.stringify(settings) });
+                    setSettings(data.settings || settings);
+                    addToast('Settings saved!', 'success');
+                } catch (err) {
+                    addToast(err.message, 'error');
+                } finally {
+                    setSaving(false);
+                }
+            };
+
+            if (loading) return <LoadingSpinner />;
+
+            return (
+                <div className="space-y-6">
+                    <h1 className="text-2xl font-bold text-navy">Company Settings</h1>
+
+                    <div className="bg-white rounded-lg p-6 shadow-sm space-y-6">
+                        <h3 className="text-lg font-bold text-navy">Approval Thresholds</h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-navy mb-2">Auto-Approve Threshold (₹)</label>
+                                <input type="number" value={settings?.auto_approve_threshold || 0} onChange={(e) => setSettings({...settings, auto_approve_threshold: parseFloat(e.target.value)})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+                                <p className="text-xs text-muted mt-1">Expenses below this amount are auto-approved</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-navy mb-2">Manager Approval Limit (₹)</label>
+                                <input type="number" value={settings?.manager_approval_limit || 0} onChange={(e) => setSettings({...settings, manager_approval_limit: parseFloat(e.target.value)})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+                                <p className="text-xs text-muted mt-1">Above this, expenses escalate to Admin</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-navy mb-2">Admin Approval Limit (₹)</label>
+                                <input type="number" value={settings?.admin_approval_limit || 0} onChange={(e) => setSettings({...settings, admin_approval_limit: parseFloat(e.target.value)})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+                                <p className="text-xs text-muted mt-1">Above this, expenses escalate to Company Admin</p>
+                            </div>
+
+                            <div>
+                                <label className="flex items-center gap-3 mt-6">
+                                    <input type="checkbox" checked={settings?.requires_manager_approval === 1} onChange={(e) => setSettings({...settings, requires_manager_approval: e.target.checked ? 1 : 0})} className="w-5 h-5" />
+                                    <div>
+                                        <span className="text-sm font-medium text-navy">Require Manager Approval</span>
+                                        <p className="text-xs text-muted">Employee expenses must be approved by their manager first</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button onClick={handleSave} disabled={saving} className="px-8 py-2 rounded-lg font-semibold" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>
+                            {saving ? 'Saving...' : 'Save Settings'}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
         // ==================== Cards Page ====================
         const CardsPage = () => {
             const [cards, setCards] = useState([]);
@@ -512,6 +706,8 @@
             const [showModal, setShowModal] = useState(false);
             const [newCard, setNewCard] = useState({ user_id: '', card_type: 'virtual', daily_limit: 10000, monthly_limit: 100000 });
             const { addToast } = useToast();
+            const role = getUserRole();
+            const canIssueCards = isRoleAtLeast(role, 'admin');
 
             useEffect(() => {
                 const fetchCards = async () => {
@@ -528,37 +724,28 @@
             }, []);
 
             const handleToggleFreeze = async (cardId, currentStatus) => {
+                if (!canIssueCards) { addToast('No permission to modify cards', 'error'); return; }
                 try {
                     const newStatus = currentStatus === 'frozen' ? 'active' : 'frozen';
-                    await apiCall(`/cards/${cardId}`, {
-                        method: 'PUT',
-                        body: JSON.stringify({ status: newStatus })
-                    });
+                    await apiCall(`/cards/${cardId}`, { method: 'PUT', body: JSON.stringify({ status: newStatus }) });
                     setCards(cards.map(c => c.id === cardId ? { ...c, status: newStatus } : c));
                     addToast(currentStatus === 'frozen' ? 'Card unfrozen' : 'Card frozen', 'success');
                 } catch (err) {
-                    addToast('Error updating card', 'error');
+                    addToast(err.message, 'error');
                 }
             };
 
             const handleIssueCard = async () => {
-                if (!newCard.user_id) {
-                    addToast('Please select a team member', 'error');
-                    return;
-                }
+                if (!newCard.user_id) { addToast('Please select a team member', 'error'); return; }
                 try {
-                    await apiCall('/cards', {
-                        method: 'POST',
-                        body: JSON.stringify(newCard)
-                    });
+                    await apiCall('/cards', { method: 'POST', body: JSON.stringify(newCard) });
                     addToast('Card issued successfully!', 'success');
                     setShowModal(false);
                     setNewCard({ user_id: '', card_type: 'virtual', daily_limit: 10000, monthly_limit: 100000 });
-                    // Refresh cards
                     const data = await apiCall('/cards');
                     setCards(data.cards || []);
                 } catch (err) {
-                    addToast('Error issuing card', 'error');
+                    addToast(err.message, 'error');
                 }
             };
 
@@ -568,45 +755,43 @@
                 <div className="space-y-6">
                     <div className="flex justify-between items-center">
                         <h1 className="text-2xl font-bold text-navy">Cards Management</h1>
-                        <button onClick={() => setShowModal(true)} className="px-6 py-2 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>
-                            + Issue New Card
-                        </button>
+                        {canIssueCards && (
+                            <button onClick={() => setShowModal(true)} className="px-6 py-2 rounded-lg font-semibold" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>+ Issue New Card</button>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {cards.map((card) => (
                             <div key={card.id} className="card-gradient rounded-lg p-6 text-white shadow-lg" style={{ background: 'linear-gradient(135deg, #1a2f4f 0%, #0F1B2D 100%)' }}>
-                                <div className="flex justify-between items-start mb-8">
+                                <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <p className="text-xs text-gray-300 mb-1">Card Number</p>
                                         <p className="text-lg font-mono">****{card.card_number?.slice(-4)}</p>
                                     </div>
                                     <div className="text-2xl">💳</div>
                                 </div>
-
-                                <div className="mb-6">
+                                {card.user_name && <p className="text-sm text-gray-300 mb-4">{card.user_name}</p>}
+                                <div className="mb-4">
                                     <p className="text-xs text-gray-300 mb-1">Card Type</p>
                                     <p className="font-semibold">{card.card_type?.toUpperCase()}</p>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-t border-gray-400">
-                                    <div className="pt-4">
+                                <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-t border-gray-600 pt-4">
+                                    <div>
                                         <p className="text-xs text-gray-300">Daily Limit</p>
                                         <p className="font-semibold">{formatCurrency(card.daily_limit)}</p>
-                                        <p className="text-xs text-gray-300 mt-1">Spent: {formatCurrency(card.spent_today || 0)}</p>
                                     </div>
-                                    <div className="pt-4">
+                                    <div>
                                         <p className="text-xs text-gray-300">Monthly Limit</p>
                                         <p className="font-semibold">{formatCurrency(card.monthly_limit)}</p>
-                                        <p className="text-xs text-gray-300 mt-1">Spent: {formatCurrency(card.spent_month || 0)}</p>
                                     </div>
                                 </div>
-
                                 <div className="space-y-2">
                                     <Badge status={card.status} />
-                                    <button onClick={() => handleToggleFreeze(card.id, card.status)} className="w-full mt-2 px-3 py-2 rounded text-sm font-medium transition-colors" style={{ backgroundColor: card.status === 'frozen' ? 'var(--teal)' : 'rgba(255, 107, 107, 0.2)', color: card.status === 'frozen' ? 'var(--navy)' : '#ff6b6b' }}>
-                                        {card.status === 'frozen' ? '🔓 Unfreeze' : '🔒 Freeze'}
-                                    </button>
+                                    {canIssueCards && (
+                                        <button onClick={() => handleToggleFreeze(card.id, card.status)} className="w-full mt-2 px-3 py-2 rounded text-sm font-medium transition-colors" style={{ backgroundColor: card.status === 'frozen' ? 'var(--teal)' : 'rgba(255, 107, 107, 0.2)', color: card.status === 'frozen' ? 'var(--navy)' : '#ff6b6b' }}>
+                                            {card.status === 'frozen' ? '🔓 Unfreeze' : '🔒 Freeze'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -618,7 +803,6 @@
                                 <label className="block text-sm font-medium text-navy mb-2">Team Member User ID</label>
                                 <input type="text" value={newCard.user_id} onChange={(e) => setNewCard({ ...newCard, user_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="Enter user ID" />
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-navy mb-2">Card Type</label>
                                 <select value={newCard.card_type} onChange={(e) => setNewCard({ ...newCard, card_type: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
@@ -626,20 +810,15 @@
                                     <option value="physical">Physical</option>
                                 </select>
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-navy mb-2">Daily Limit (₹)</label>
                                 <input type="number" value={newCard.daily_limit} onChange={(e) => setNewCard({ ...newCard, daily_limit: parseInt(e.target.value) })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-navy mb-2">Monthly Limit (₹)</label>
                                 <input type="number" value={newCard.monthly_limit} onChange={(e) => setNewCard({ ...newCard, monthly_limit: parseInt(e.target.value) })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
                             </div>
-
-                            <button onClick={handleIssueCard} className="w-full mt-4 py-2 px-4 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>
-                                Issue Card
-                            </button>
+                            <button onClick={handleIssueCard} className="w-full py-2 px-4 rounded-lg font-semibold" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>Issue Card</button>
                         </div>
                     </Modal>
                 </div>
@@ -656,14 +835,16 @@
             const [categoryFilter, setCategoryFilter] = useState('all');
             const [newExpense, setNewExpense] = useState({ card_id: '', merchant_name: '', amount: 0, category: 'travel', description: '', gstin_vendor: '' });
             const { addToast } = useToast();
+            const role = getUserRole();
+            const canSubmitExpense = role !== 'super_admin';
 
             useEffect(() => {
                 const fetchExpenses = async () => {
                     try {
                         const data = await apiCall('/expenses');
-                        const expensesList = data.expenses || [];
-                        setExpenses(expensesList);
-                        filterExpenses(expensesList, 'all', 'all');
+                        const list = data.expenses || [];
+                        setExpenses(list);
+                        filterExpenses(list, 'all', 'all');
                     } catch (err) {
                         addToast('Error loading expenses', 'error');
                     } finally {
@@ -687,24 +868,18 @@
             };
 
             const handleAddExpense = async () => {
-                if (!newExpense.merchant_name || newExpense.amount <= 0 || !newExpense.card_id) {
-                    addToast('Please fill all required fields', 'error');
-                    return;
-                }
+                if (!newExpense.merchant_name || newExpense.amount <= 0) { addToast('Please fill required fields', 'error'); return; }
                 try {
-                    await apiCall('/expenses', {
-                        method: 'POST',
-                        body: JSON.stringify(newExpense)
-                    });
-                    addToast('Expense added successfully!', 'success');
+                    await apiCall('/expenses', { method: 'POST', body: JSON.stringify(newExpense) });
+                    addToast('Expense added!', 'success');
                     setShowModal(false);
                     setNewExpense({ card_id: '', merchant_name: '', amount: 0, category: 'travel', description: '', gstin_vendor: '' });
                     const data = await apiCall('/expenses');
-                    const expensesList = data.expenses || [];
-                    setExpenses(expensesList);
-                    filterExpenses(expensesList, statusFilter, categoryFilter);
+                    const list = data.expenses || [];
+                    setExpenses(list);
+                    filterExpenses(list, statusFilter, categoryFilter);
                 } catch (err) {
-                    addToast('Error adding expense', 'error');
+                    addToast(err.message, 'error');
                 }
             };
 
@@ -714,12 +889,12 @@
                 <div className="space-y-6">
                     <div className="flex justify-between items-center">
                         <h1 className="text-2xl font-bold text-navy">Expenses</h1>
-                        <button onClick={() => setShowModal(true)} className="px-6 py-2 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>
-                            + Add Expense
-                        </button>
+                        {canSubmitExpense && (
+                            <button onClick={() => setShowModal(true)} className="px-6 py-2 rounded-lg font-semibold" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>+ Add Expense</button>
+                        )}
                     </div>
 
-                    <div className="bg-white rounded-lg p-4 shadow-sm flex gap-4">
+                    <div className="bg-white rounded-lg p-4 shadow-sm flex gap-4 flex-wrap">
                         <select value={statusFilter} onChange={(e) => handleFilterChange(e.target.value, categoryFilter)} className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
                             <option value="all">All Status</option>
                             <option value="pending">Pending</option>
@@ -727,13 +902,13 @@
                             <option value="rejected">Rejected</option>
                             <option value="auto_approved">Auto Approved</option>
                         </select>
-
                         <select value={categoryFilter} onChange={(e) => handleFilterChange(statusFilter, e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
                             <option value="all">All Categories</option>
                             <option value="travel">Travel</option>
                             <option value="meals">Meals</option>
                             <option value="software">Software</option>
                             <option value="office">Office</option>
+                            <option value="marketing">Marketing</option>
                         </select>
                     </div>
 
@@ -742,10 +917,11 @@
                             <thead>
                                 <tr className="border-b border-gray-200">
                                     <th className="text-left py-3 text-muted font-medium">Date</th>
+                                    {isRoleAtLeast(role, 'manager') && <th className="text-left py-3 text-muted font-medium">Submitted By</th>}
                                     <th className="text-left py-3 text-muted font-medium">Merchant</th>
                                     <th className="text-left py-3 text-muted font-medium">Category</th>
                                     <th className="text-right py-3 text-muted font-medium">Amount</th>
-                                    <th className="text-right py-3 text-muted font-medium">GST (18%)</th>
+                                    <th className="text-right py-3 text-muted font-medium">GST</th>
                                     <th className="text-left py-3 text-muted font-medium">Status</th>
                                 </tr>
                             </thead>
@@ -753,6 +929,7 @@
                                 {filteredExpenses.map((exp, idx) => (
                                     <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                                         <td className="py-3 text-navy">{formatDate(exp.created_at)}</td>
+                                        {isRoleAtLeast(role, 'manager') && <td className="py-3 text-navy">{exp.user_name || '—'}</td>}
                                         <td className="py-3 text-navy font-medium">{exp.merchant_name}</td>
                                         <td className="py-3 text-muted">{exp.category}</td>
                                         <td className="py-3 text-right text-navy font-semibold">{formatCurrency(exp.amount)}</td>
@@ -767,20 +944,17 @@
                     <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Add New Expense">
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-navy mb-2">Card ID</label>
+                                <label className="block text-sm font-medium text-navy mb-2">Card ID (optional)</label>
                                 <input type="text" value={newExpense.card_id} onChange={(e) => setNewExpense({ ...newExpense, card_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="Enter card ID" />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-navy mb-2">Merchant Name</label>
-                                <input type="text" value={newExpense.merchant_name} onChange={(e) => setNewExpense({ ...newExpense, merchant_name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="e.g., Marriott Hotels" />
+                                <label className="block text-sm font-medium text-navy mb-2">Merchant Name *</label>
+                                <input type="text" value={newExpense.merchant_name} onChange={(e) => setNewExpense({ ...newExpense, merchant_name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="e.g., Uber" />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-navy mb-2">Amount (₹)</label>
+                                <label className="block text-sm font-medium text-navy mb-2">Amount (₹) *</label>
                                 <input type="number" value={newExpense.amount} onChange={(e) => setNewExpense({ ...newExpense, amount: parseInt(e.target.value) || 0 })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-navy mb-2">Category</label>
                                 <select value={newExpense.category} onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
@@ -788,22 +962,19 @@
                                     <option value="meals">Meals</option>
                                     <option value="software">Software</option>
                                     <option value="office">Office</option>
+                                    <option value="marketing">Marketing</option>
+                                    <option value="other">Other</option>
                                 </select>
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-navy mb-2">Vendor GSTIN (Optional)</label>
-                                <input type="text" value={newExpense.gstin_vendor} onChange={(e) => setNewExpense({ ...newExpense, gstin_vendor: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="e.g., 18AACCT0000000001" />
+                                <label className="block text-sm font-medium text-navy mb-2">Vendor GSTIN</label>
+                                <input type="text" value={newExpense.gstin_vendor} onChange={(e) => setNewExpense({ ...newExpense, gstin_vendor: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-navy mb-2">Description</label>
-                                <textarea value={newExpense.description} onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows="3" />
+                                <textarea value={newExpense.description} onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" rows="2" />
                             </div>
-
-                            <button onClick={handleAddExpense} className="w-full mt-4 py-2 px-4 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>
-                                Add Expense
-                            </button>
+                            <button onClick={handleAddExpense} className="w-full py-2 px-4 rounded-lg font-semibold" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>Add Expense</button>
                         </div>
                     </Modal>
                 </div>
@@ -812,9 +983,8 @@
 
         // ==================== Approvals Page ====================
         const ApprovalsPage = () => {
-            const [approvals, setApprovals] = useState([]);
-            const [approved, setApproved] = useState([]);
-            const [rejected, setRejected] = useState([]);
+            const [pending, setPending] = useState([]);
+            const [history, setHistory] = useState([]);
             const [loading, setLoading] = useState(true);
             const [activeTab, setActiveTab] = useState('pending');
             const [comment, setComment] = useState('');
@@ -823,14 +993,10 @@
             useEffect(() => {
                 const fetchApprovals = async () => {
                     try {
-                        const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
-                            apiCall('/expenses?status=pending'),
-                            apiCall('/expenses?status=approved'),
-                            apiCall('/expenses?status=rejected')
-                        ]);
-                        setApprovals(pendingRes.expenses || []);
-                        setApproved(approvedRes.expenses || []);
-                        setRejected(rejectedRes.expenses || []);
+                        const data = await apiCall('/approvals');
+                        const all = data.approvals || [];
+                        setPending(all.filter(a => a.status === 'pending'));
+                        setHistory(all.filter(a => a.status !== 'pending'));
                     } catch (err) {
                         addToast('Error loading approvals', 'error');
                     } finally {
@@ -842,33 +1008,23 @@
 
             const handleApprove = async (expenseId) => {
                 try {
-                    await apiCall(`/expenses/${expenseId}/approve`, {
-                        method: 'PUT',
-                        body: JSON.stringify({ comment })
-                    });
-                    addToast('Expense approved!', 'success');
-                    setApprovals(approvals.filter(a => a.id !== expenseId));
-                    const updated = await apiCall('/expenses?status=approved');
-                    setApproved(updated.expenses || []);
+                    const result = await apiCall(`/expenses/${expenseId}/approve`, { method: 'PUT', body: JSON.stringify({ comment }) });
+                    addToast(result.message || 'Expense approved!', 'success');
+                    setPending(pending.filter(a => a.expense_id !== expenseId));
                     setComment('');
                 } catch (err) {
-                    addToast('Error approving expense', 'error');
+                    addToast(err.message, 'error');
                 }
             };
 
             const handleReject = async (expenseId) => {
                 try {
-                    await apiCall(`/expenses/${expenseId}/reject`, {
-                        method: 'PUT',
-                        body: JSON.stringify({ comment })
-                    });
+                    await apiCall(`/expenses/${expenseId}/reject`, { method: 'PUT', body: JSON.stringify({ comment }) });
                     addToast('Expense rejected!', 'success');
-                    setApprovals(approvals.filter(a => a.id !== expenseId));
-                    const updated = await apiCall('/expenses?status=rejected');
-                    setRejected(updated.expenses || []);
+                    setPending(pending.filter(a => a.expense_id !== expenseId));
                     setComment('');
                 } catch (err) {
-                    addToast('Error rejecting expense', 'error');
+                    addToast(err.message, 'error');
                 }
             };
 
@@ -879,84 +1035,57 @@
                     <h1 className="text-2xl font-bold text-navy">Approval Requests</h1>
 
                     <div className="flex gap-2 bg-white rounded-lg p-1 shadow-sm w-fit">
-                        {['pending', 'approved', 'rejected'].map(tab => (
+                        {['pending', 'history'].map(tab => (
                             <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 rounded transition-colors ${activeTab === tab ? 'bg-teal-100 text-navy font-semibold' : 'text-muted'}`} style={activeTab === tab ? { backgroundColor: 'rgba(0, 208, 156, 0.2)' } : {}}>
-                                {tab.charAt(0).toUpperCase() + tab.slice(1)} ({tab === 'pending' ? approvals.length : tab === 'approved' ? approved.length : rejected.length})
+                                {tab === 'pending' ? `Pending (${pending.length})` : `History (${history.length})`}
                             </button>
                         ))}
                     </div>
 
                     <div className="space-y-4">
-                        {activeTab === 'pending' && approvals.map(item => (
+                        {activeTab === 'pending' && pending.map(item => (
                             <div key={item.id} className="bg-white rounded-lg p-6 shadow-sm border-l-4" style={{ borderColor: 'var(--gold)' }}>
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
-                                        <h3 className="text-lg font-bold text-navy">{item.user_name || 'Unknown'}</h3>
-                                        <p className="text-sm text-muted">{item.merchant_name}</p>
+                                        <h3 className="text-lg font-bold text-navy">{item.submitter_name || 'Unknown'}</h3>
+                                        <p className="text-sm text-muted">{item.merchant_name} · {item.category}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-2xl font-bold text-navy">{formatCurrency(item.amount)}</p>
-                                        <p className="text-xs text-muted">{formatDate(item.created_at)}</p>
+                                        <p className="text-xs text-muted">Level {item.approval_level}</p>
                                     </div>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-200">
-                                    <div>
-                                        <span className="text-xs text-muted">Category</span>
-                                        <p className="text-sm font-medium text-navy">{item.category}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-xs text-muted">GST</span>
-                                        <p className="text-sm font-medium text-navy">{formatCurrency(item.gst_amount || 0)}</p>
-                                    </div>
-                                </div>
-
                                 {item.description && (
-                                    <div className="mb-4 p-3 bg-gray-50 rounded text-sm text-navy">
-                                        <strong>Description:</strong> {item.description}
-                                    </div>
+                                    <div className="mb-4 p-3 bg-gray-50 rounded text-sm text-navy">{item.description}</div>
                                 )}
-
                                 <div className="mb-4">
                                     <input type="text" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add optional comment..." className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-sm" />
                                 </div>
-
                                 <div className="flex gap-3">
-                                    <button onClick={() => handleApprove(item.id)} className="flex-1 py-2 px-4 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: '#00D09C' }}>
-                                        ✓ Approve
-                                    </button>
-                                    <button onClick={() => handleReject(item.id)} className="flex-1 py-2 px-4 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: '#FF6B6B' }}>
-                                        ✕ Reject
-                                    </button>
+                                    <button onClick={() => handleApprove(item.expense_id)} className="flex-1 py-2 px-4 rounded-lg font-semibold text-white" style={{ backgroundColor: '#00D09C' }}>✓ Approve</button>
+                                    <button onClick={() => handleReject(item.expense_id)} className="flex-1 py-2 px-4 rounded-lg font-semibold text-white" style={{ backgroundColor: '#FF6B6B' }}>✕ Reject</button>
                                 </div>
                             </div>
                         ))}
 
-                        {activeTab === 'approved' && approved.map(item => (
-                            <div key={item.id} className="bg-white rounded-lg p-6 shadow-sm border-l-4 border-green-500">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h3 className="text-lg font-bold text-navy">{item.user_name || 'Unknown'}</h3>
-                                        <p className="text-sm text-muted">{item.merchant_name}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <Badge status="approved" />
-                                        <p className="text-2xl font-bold text-navy mt-2">{formatCurrency(item.amount)}</p>
-                                    </div>
-                                </div>
+                        {activeTab === 'pending' && pending.length === 0 && (
+                            <div className="bg-white rounded-lg p-12 shadow-sm text-center">
+                                <p className="text-4xl mb-4">✓</p>
+                                <p className="text-lg font-medium text-navy">All caught up!</p>
+                                <p className="text-muted">No pending approvals</p>
                             </div>
-                        ))}
+                        )}
 
-                        {activeTab === 'rejected' && rejected.map(item => (
-                            <div key={item.id} className="bg-white rounded-lg p-6 shadow-sm border-l-4 border-red-500">
+                        {activeTab === 'history' && history.map(item => (
+                            <div key={item.id} className={`bg-white rounded-lg p-6 shadow-sm border-l-4 ${item.status === 'approved' ? 'border-green-500' : 'border-red-500'}`}>
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <h3 className="text-lg font-bold text-navy">{item.user_name || 'Unknown'}</h3>
+                                        <h3 className="text-lg font-bold text-navy">{item.submitter_name || 'Unknown'}</h3>
                                         <p className="text-sm text-muted">{item.merchant_name}</p>
                                     </div>
                                     <div className="text-right">
-                                        <Badge status="rejected" />
-                                        <p className="text-2xl font-bold text-navy mt-2">{formatCurrency(item.amount)}</p>
+                                        <Badge status={item.status} />
+                                        <p className="text-xl font-bold text-navy mt-2">{formatCurrency(item.amount)}</p>
                                     </div>
                                 </div>
                             </div>
@@ -980,19 +1109,11 @@
                         const gstRes = await apiCall('/gst');
                         const gstData = gstRes.gst;
                         setGstStats(gstData);
-
-                        // Transform gst_by_month object to array for BarChart
-                        const monthlyArray = Object.entries(gstData.gst_by_month || {}).map(([month, amount]) => ({
-                            month,
-                            amount
-                        }));
+                        const monthlyArray = Object.entries(gstData.gst_by_month || {}).map(([month, amount]) => ({ month, amount }));
                         setMonthlyBreakdown(monthlyArray);
                         setMissingGSTIN(gstData.missing_gstin_count || 0);
-
-                        // Fetch expenses to show GST details
                         const expensesRes = await apiCall('/expenses');
-                        const expensesList = expensesRes.expenses || [];
-                        setExpenses(expensesList);
+                        setExpenses(expensesRes.expenses || []);
                     } catch (err) {
                         console.error('Error loading GST data:', err);
                     } finally {
@@ -1007,20 +1128,17 @@
             return (
                 <div className="space-y-6">
                     <h1 className="text-2xl font-bold text-navy">GST Tracker</h1>
-
                     {missingGSTIN > 0 && (
                         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                            <p className="text-sm text-yellow-800"><strong>⚠️ Alert:</strong> {missingGSTIN} expenses missing vendor GSTIN</p>
+                            <p className="text-sm text-yellow-800"><strong>Alert:</strong> {missingGSTIN} expenses missing vendor GSTIN</p>
                         </div>
                     )}
-
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <StatCard label="Total GST Paid" value={formatCurrency(gstStats?.total_gst_paid || 0)} icon="💳" />
                         <StatCard label="Claimable ITC" value={formatCurrency(gstStats?.claimable_itc || 0)} icon="✓" />
                         <StatCard label="ITC Recovery Rate" value={`${gstStats?.itc_recovery_rate || 0}%`} icon="📊" />
-                        <StatCard label="Missing GSTIN" value={missingGSTIN} icon="⚠️" />
+                        <StatCard label="Missing GSTIN" value={missingGSTIN} icon="⚠" />
                     </div>
-
                     <div className="bg-white rounded-lg p-6 shadow-sm">
                         <h3 className="text-lg font-bold text-navy mb-4">Monthly GST Breakdown</h3>
                         <ResponsiveContainer width="100%" height={300}>
@@ -1033,7 +1151,6 @@
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-
                     <div className="bg-white rounded-lg p-6 shadow-sm overflow-x-auto">
                         <h3 className="text-lg font-bold text-navy mb-4">GST Details</h3>
                         <table className="w-full text-sm">
@@ -1048,10 +1165,10 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {expenses.map((exp, idx) => (
+                                {expenses.slice(0, 20).map((exp, idx) => (
                                     <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                                         <td className="py-3 text-navy font-medium">{exp.merchant_name}</td>
-                                        <td className="py-3 text-muted font-mono">{exp.gstin_vendor || '—'}</td>
+                                        <td className="py-3 text-muted font-mono text-xs">{exp.gstin_vendor || '—'}</td>
                                         <td className="py-3 text-right text-navy font-semibold">{formatCurrency(exp.amount)}</td>
                                         <td className="py-3 text-right text-navy">{formatCurrency(exp.cgst || 0)}</td>
                                         <td className="py-3 text-right text-navy">{formatCurrency(exp.sgst || 0)}</td>
@@ -1070,8 +1187,16 @@
             const [teamMembers, setTeamMembers] = useState([]);
             const [loading, setLoading] = useState(true);
             const [showModal, setShowModal] = useState(false);
-            const [newMember, setNewMember] = useState({ name: '', email: '', role: 'employee', issue_card: false });
+            const [newMember, setNewMember] = useState({ name: '', email: '', role: 'employee', department: '', issue_card: false, manager_id: '' });
             const { addToast } = useToast();
+            const role = getUserRole();
+            const canAddMembers = isRoleAtLeast(role, 'admin');
+
+            // Determine which roles this user can create
+            const creatableRoles = role === 'super_admin' ? ['company_admin', 'admin', 'manager', 'employee']
+                : role === 'company_admin' ? ['admin', 'manager', 'employee']
+                : role === 'admin' ? ['manager', 'employee']
+                : [];
 
             useEffect(() => {
                 const fetchTeam = async () => {
@@ -1088,39 +1213,32 @@
             }, []);
 
             const handleAddMember = async () => {
-                if (!newMember.name || !newMember.email) {
-                    addToast('Please fill all required fields', 'error');
-                    return;
-                }
+                if (!newMember.name || !newMember.email) { addToast('Please fill required fields', 'error'); return; }
                 try {
-                    await apiCall('/team', {
-                        method: 'POST',
-                        body: JSON.stringify(newMember)
-                    });
+                    const payload = { ...newMember };
+                    if (payload.manager_id) payload.manager_id = parseInt(payload.manager_id);
+                    await apiCall('/team', { method: 'POST', body: JSON.stringify(payload) });
                     addToast('Team member added!', 'success');
                     setShowModal(false);
-                    setNewMember({ name: '', email: '', role: 'employee', issue_card: false });
+                    setNewMember({ name: '', email: '', role: 'employee', department: '', issue_card: false, manager_id: '' });
                     const data = await apiCall('/team');
                     setTeamMembers(data.team || []);
                 } catch (err) {
-                    addToast('Error adding team member', 'error');
+                    addToast(err.message, 'error');
                 }
             };
 
             if (loading) return <LoadingSpinner />;
 
-            const getRoleColor = (role) => {
-                const colors = { 'admin': 'bg-purple-100 text-purple-800', 'approver': 'bg-blue-100 text-blue-800', 'employee': 'bg-gray-100 text-gray-800' };
-                return colors[role] || colors['employee'];
-            };
+            const managers = teamMembers.filter(m => m.role === 'manager');
 
             return (
                 <div className="space-y-6">
                     <div className="flex justify-between items-center">
                         <h1 className="text-2xl font-bold text-navy">Team Management</h1>
-                        <button onClick={() => setShowModal(true)} className="px-6 py-2 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>
-                            + Add Team Member
-                        </button>
+                        {canAddMembers && (
+                            <button onClick={() => setShowModal(true)} className="px-6 py-2 rounded-lg font-semibold" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>+ Add Team Member</button>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1132,23 +1250,15 @@
                                         <p className="text-sm text-muted mt-1">{member.email}</p>
                                     </div>
                                 </div>
-
-                                <div className="mb-4 pb-4 border-b border-gray-200">
-                                    <span className={`badge ${getRoleColor(member.role)}`}>
-                                        {member.role.toUpperCase()}
-                                    </span>
+                                <div className="mb-4 pb-4 border-b border-gray-200 flex items-center gap-2">
+                                    <RoleBadge role={member.role} />
+                                    {member.department && <span className="text-xs text-muted">· {member.department}</span>}
+                                    {member.status === 'inactive' && <Badge status="inactive" />}
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="text-xs text-muted">Cards Issued</p>
-                                        <p className="text-2xl font-bold text-navy">{member.cards_issued || 0}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-muted">Total Spend</p>
-                                        <p className="text-lg font-bold text-navy">{formatCurrency(member.total_spend || 0)}</p>
-                                    </div>
-                                </div>
+                                {member.manager_name && (
+                                    <p className="text-xs text-muted mb-2">Reports to: <span className="text-navy font-medium">{member.manager_name}</span></p>
+                                )}
+                                <div className="text-xs text-muted">Joined {formatDate(member.created_at)}</div>
                             </div>
                         ))}
                     </div>
@@ -1156,32 +1266,39 @@
                     <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Add Team Member">
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-navy mb-2">Name</label>
+                                <label className="block text-sm font-medium text-navy mb-2">Name *</label>
                                 <input type="text" value={newMember.name} onChange={(e) => setNewMember({ ...newMember, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-navy mb-2">Email</label>
+                                <label className="block text-sm font-medium text-navy mb-2">Email *</label>
                                 <input type="email" value={newMember.email} onChange={(e) => setNewMember({ ...newMember, email: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-navy mb-2">Role</label>
                                 <select value={newMember.role} onChange={(e) => setNewMember({ ...newMember, role: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
-                                    <option value="employee">Employee</option>
-                                    <option value="approver">Approver</option>
-                                    <option value="admin">Admin</option>
+                                    {creatableRoles.map(r => (
+                                        <option key={r} value={r}>{getRoleLabel(r)}</option>
+                                    ))}
                                 </select>
                             </div>
-
+                            <div>
+                                <label className="block text-sm font-medium text-navy mb-2">Department</label>
+                                <input type="text" value={newMember.department} onChange={(e) => setNewMember({ ...newMember, department: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="e.g., Engineering" />
+                            </div>
+                            {(newMember.role === 'employee' || newMember.role === 'manager') && managers.length > 0 && (
+                                <div>
+                                    <label className="block text-sm font-medium text-navy mb-2">Assign Manager</label>
+                                    <select value={newMember.manager_id} onChange={(e) => setNewMember({ ...newMember, manager_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                                        <option value="">No manager</option>
+                                        {managers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
                             <label className="flex items-center gap-2">
                                 <input type="checkbox" checked={newMember.issue_card} onChange={(e) => setNewMember({ ...newMember, issue_card: e.target.checked })} />
                                 <span className="text-sm text-navy">Issue card immediately</span>
                             </label>
-
-                            <button onClick={handleAddMember} className="w-full mt-4 py-2 px-4 rounded-lg font-semibold text-white transition-colors" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>
-                                Add Member
-                            </button>
+                            <button onClick={handleAddMember} className="w-full py-2 px-4 rounded-lg font-semibold" style={{ backgroundColor: 'var(--teal)', color: 'var(--navy)' }}>Add Member</button>
                         </div>
                     </Modal>
                 </div>
@@ -1200,30 +1317,11 @@
                 const fetchAnalytics = async () => {
                     try {
                         const analyticsRes = await apiCall('/analytics');
-                        const analyticsData = analyticsRes.analytics;
-
-                        // Transform spend_trend object to array for LineChart
-                        const trendArray = Object.entries(analyticsData.spend_trend || {}).map(([month, amount]) => ({
-                            month,
-                            amount
-                        }));
-                        setTrendData(trendArray);
-
-                        // Transform category_breakdown object to array for PieChart
-                        const categoryArray = Object.entries(analyticsData.category_breakdown || {}).map(([name, value]) => ({
-                            name,
-                            value
-                        }));
-                        setCategoryData(categoryArray);
-
-                        // Transform top_merchants array - map to chart format
-                        const merchantArray = (analyticsData.top_merchants || []).map(m => ({
-                            name: m.name,
-                            amount: m.total
-                        }));
-                        setMerchantData(merchantArray);
-
-                        setMetrics(analyticsData);
+                        const d = analyticsRes.analytics;
+                        setTrendData(Object.entries(d.spend_trend || {}).map(([month, amount]) => ({ month, amount })));
+                        setCategoryData((d.category_breakdown || []).map(c => ({ name: c.category, value: c.spent })));
+                        setMerchantData((d.top_merchants || []).map(m => ({ name: m.merchant, amount: m.spent })));
+                        setMetrics(d);
                     } catch (err) {
                         console.error('Error loading analytics:', err);
                     } finally {
@@ -1240,14 +1338,12 @@
             return (
                 <div className="space-y-6">
                     <h1 className="text-2xl font-bold text-navy">Analytics & Insights</h1>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <StatCard label="Avg Transaction" value={formatCurrency(metrics?.avg_transaction_size || 0)} icon="💵" />
                         <StatCard label="Total Transactions" value={metrics?.total_transactions || 0} icon="🔢" />
-                        <StatCard label="Card Utilization" value={`${metrics?.cards_utilization || 0}%`} icon="📊" />
+                        <StatCard label="Categories" value={categoryData.length} icon="📊" />
                         <StatCard label="Total Spend" value={formatCurrency(Object.values(metrics?.spend_trend || {}).reduce((a, b) => a + b, 0))} icon="💰" />
                     </div>
-
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white rounded-lg p-6 shadow-sm">
                             <h3 className="text-lg font-bold text-navy mb-4">12-Month Spend Trend</h3>
@@ -1256,12 +1352,11 @@
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                     <XAxis dataKey="month" stroke="var(--muted)" />
                                     <YAxis stroke="var(--muted)" />
-                                    <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+                                    <Tooltip />
                                     <Line type="monotone" dataKey="amount" stroke="var(--teal)" strokeWidth={2} dot={{ fill: 'var(--teal)', r: 4 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
-
                         <div className="bg-white rounded-lg p-6 shadow-sm">
                             <h3 className="text-lg font-bold text-navy mb-4">Category Breakdown</h3>
                             <ResponsiveContainer width="100%" height={300}>
@@ -1276,7 +1371,6 @@
                             </ResponsiveContainer>
                         </div>
                     </div>
-
                     <div className="bg-white rounded-lg p-6 shadow-sm">
                         <h3 className="text-lg font-bold text-navy mb-4">Top Merchants</h3>
                         <ResponsiveContainer width="100%" height={300}>
@@ -1284,7 +1378,7 @@
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                 <XAxis type="number" stroke="var(--muted)" />
                                 <YAxis dataKey="name" type="category" stroke="var(--muted)" width={120} />
-                                <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+                                <Tooltip />
                                 <Bar dataKey="amount" fill="var(--teal)" />
                             </BarChart>
                         </ResponsiveContainer>
@@ -1299,6 +1393,8 @@
             const [sidebarOpen, setSidebarOpen] = useState(false);
             const [userEmail, setUserEmail] = useState('');
             const [userName, setUserName] = useState('');
+            const [userRole, setUserRole] = useState('employee');
+            const [, forceUpdate] = useState(0);
             const { addToast } = useToast();
 
             useEffect(() => {
@@ -1309,25 +1405,27 @@
                     const userData = JSON.parse(user);
                     setUserEmail(userData.email || '');
                     setUserName(userData.name || userData.email || '');
+                    setUserRole(userData.role || 'employee');
                 } else {
                     setIsAuthenticated(false);
                 }
+
+                // Listen for hash changes to re-render
+                const handleHashChange = () => {
+                    setSidebarOpen(false);
+                    forceUpdate(n => n + 1);
+                };
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
             }, []);
 
             const handleLogout = () => {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
+                localStorage.removeItem('companies');
                 setIsAuthenticated(false);
                 window.location.hash = '#/login';
                 addToast('Logged out successfully', 'success');
-            };
-
-            const toggleSidebar = () => {
-                setSidebarOpen(!sidebarOpen);
-            };
-
-            const closeSidebarOnNav = () => {
-                setSidebarOpen(false);
             };
 
             if (!isAuthenticated) {
@@ -1335,40 +1433,26 @@
             }
 
             const currentHash = window.location.hash || '#/dashboard';
-            let CurrentPage = Dashboard;
 
-            switch (currentHash) {
-                case '#/cards':
-                    CurrentPage = CardsPage;
-                    break;
-                case '#/expenses':
-                    CurrentPage = ExpensesPage;
-                    break;
-                case '#/approvals':
-                    CurrentPage = ApprovalsPage;
-                    break;
-                case '#/gst':
-                    CurrentPage = GSTPage;
-                    break;
-                case '#/team':
-                    CurrentPage = TeamPage;
-                    break;
-                case '#/analytics':
-                    CurrentPage = AnalyticsPage;
-                    break;
-                default:
-                    CurrentPage = Dashboard;
-            }
+            const pageMap = {
+                '#/dashboard': Dashboard,
+                '#/companies': CompaniesPage,
+                '#/cards': CardsPage,
+                '#/expenses': ExpensesPage,
+                '#/approvals': ApprovalsPage,
+                '#/gst': GSTPage,
+                '#/team': TeamPage,
+                '#/settings': SettingsPage,
+                '#/analytics': AnalyticsPage,
+            };
 
-            window.addEventListener('hashchange', closeSidebarOnNav);
+            const CurrentPage = pageMap[currentHash] || Dashboard;
 
             return (
                 <div className="flex h-screen bg-gray-50">
-                    <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} userEmail={userEmail} onLogout={handleLogout} />
-
+                    <Sidebar isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
                     <div className="flex-1 flex flex-col overflow-hidden">
-                        <TopBar toggleSidebar={toggleSidebar} userName={userName} />
-
+                        <TopBar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} userName={userName} userRole={userRole} />
                         <main className="flex-1 overflow-y-auto p-6">
                             <CurrentPage />
                         </main>
