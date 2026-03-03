@@ -12,6 +12,7 @@ from pathlib import Path
 
 # Database path
 DB_PATH = Path(__file__).parent / "nexo.db"
+# test change
 
 
 def init_db():
