@@ -262,6 +262,37 @@ def init_db():
     # Approvals table migrations
     add_column_if_missing(cursor, 'approvals', 'approval_level', 'INTEGER DEFAULT 1')
 
+    # Make users.company_id nullable (needed for super_admin who has no company)
+    # SQLite doesn't support ALTER COLUMN, so we rebuild the table if needed
+    try:
+        # Check if company_id is NOT NULL in current schema
+        table_info = cursor.execute("PRAGMA table_info(users)").fetchall()
+        for col in table_info:
+            if col[1] == 'company_id' and col[3] == 1:  # col[3] is notnull flag
+                # Rebuild table with nullable company_id
+                cursor.execute("""
+                    CREATE TABLE users_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        email TEXT UNIQUE NOT NULL,
+                        password_hash TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        role TEXT DEFAULT 'employee',
+                        company_id INTEGER,
+                        department TEXT,
+                        status TEXT DEFAULT 'active',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cursor.execute("""
+                    INSERT INTO users_new (id, email, password_hash, name, role, company_id, department, status, created_at)
+                    SELECT id, email, password_hash, name, role, company_id, department, status, created_at FROM users
+                """)
+                cursor.execute("DROP TABLE users")
+                cursor.execute("ALTER TABLE users_new RENAME TO users")
+                break
+    except Exception:
+        pass
+
     # Migrate old role names to new ones
     cursor.execute("UPDATE users SET role='company_admin' WHERE role='admin'")
     cursor.execute("UPDATE users SET role='manager' WHERE role='approver'")
